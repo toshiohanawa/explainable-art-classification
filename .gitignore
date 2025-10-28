@@ -102,7 +102,7 @@ dmypy.json
 
 # データファイル（大容量のため）
 data/raw_images/
-data/raw_data/
+# data/raw_data/  # 生データディレクトリはコミット対象
 data/analysis_*/
 
 # ログファイル
