@@ -109,6 +109,9 @@ data/analysis_*/
 data/raw_data/checkpoint.json
 data/raw_data/failed_ids.json
 
+# 大容量CSVファイル（GitHub制限により除外）
+data/raw_data/MetObjects.csv
+
 # ログファイル
 logs/
 *.log
