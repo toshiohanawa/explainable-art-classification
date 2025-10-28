@@ -1,0 +1,42 @@
+=== ハイブリッドデータ収集 品質管理レポート ===
+生成日時: 2025-10-29 08:06:44
+
+## 件数検証
+総作品数: 484,956
+APIデータ取得成功: 0
+APIデータ取得失敗: 100
+
+## 主要列の欠損率
+Title: 5.9%
+Artist_Display_Name: 41.7%
+Object_Date: 2.8%
+Medium: 1.5%
+Department: 0.0%
+
+## API列の欠損率
+primaryImage: 100.0%
+primaryImageSmall: 100.0%
+additionalImages: 100.0%
+constituents: 100.0%
+tags: 100.0%
+measurements: 100.0%
+galleryNumber: 100.0%
+objectWikidata_URL: 100.0%
+
+## 統計サマリー
+### 部門別作品数（上位10）
+Drawings and Prints: 172,630
+European Sculpture and Decorative Arts: 43,051
+Photographs: 37,459
+Asian Art: 37,000
+Greek and Roman Art: 33,726
+Costume Institute: 31,652
+Egyptian Art: 27,969
+The American Wing: 18,532
+Islamic Art: 15,573
+Modern and Contemporary Art: 14,696
+
+### 年代分布
+最古: 0
+最新: 2022
+平均: 1855

@@ -77,14 +77,31 @@ class MetAPIClient:
         if department_ids:
             params['departmentIds'] = '|'.join(map(str, department_ids))
         
-        try:
-            response = requests.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            data = response.json()
-            return data.get('objectIDs', [])
-        except requests.RequestException as e:
-            self.logger.error(f"作品ID取得エラー: {e}")
-            raise
+        max_retries = 3
+        retry_delay = 5  # 秒
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                data = response.json()
+                return data.get('objectIDs', [])
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 403:
+                    if attempt < max_retries - 1:
+                        self.logger.warning(f"403エラー発生、{retry_delay}秒待機後に再試行... (試行 {attempt + 1}/{max_retries})")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # 指数バックオフ
+                        continue
+                    else:
+                        self.logger.error(f"作品ID取得エラー: 最大再試行回数に達しました - {e}")
+                        raise
+                else:
+                    self.logger.error(f"作品ID取得エラー: {e}")
+                    raise
+            except requests.RequestException as e:
+                self.logger.error(f"作品ID取得エラー: {e}")
+                raise
     
     def get_object_details(self, object_id: int) -> Optional[Dict[str, Any]]:
         """
@@ -160,9 +177,9 @@ class MetAPIClient:
         """
         self.logger.info("作品メタデータ収集を開始...")
         
-        # 絵画部門のIDを取得（European Paintings = 11）
+        # 全部門から取得（絵画作品は後でフィルタリング）
         if department_ids is None:
-            department_ids = [11]  # European Paintings部門
+            department_ids = None  # 全部門から取得
         
         # 作品IDを取得
         object_ids = self.get_objects(department_ids)

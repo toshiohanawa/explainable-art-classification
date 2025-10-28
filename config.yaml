@@ -4,7 +4,7 @@
 # API設定
 api:
   base_url: "https://collectionapi.metmuseum.org/public/collection/v1"
-  rate_limit: 80  # リクエスト/秒
+  rate_limit: 50  # リクエスト/秒（安全なバランス型）
   timeout: 30     # タイムアウト（秒）
 
 # データ設定
@@ -68,6 +68,22 @@ visualization:
   style: "whitegrid"
   color_palette: "husl"
   output_dir: "visualizations"
+
+# ハイブリッドデータ収集設定
+hybrid_collection:
+  csv_url: "https://github.com/metmuseum/openaccess/raw/master/MetObjects.csv"
+  checkpoint_interval: 100  # N件ごとに進捗保存
+  max_retries: 3
+  retry_base_delay: 1  # 秒
+  api_fields:  # API限定で取得するフィールド
+    - primaryImage
+    - primaryImageSmall
+    - additionalImages
+    - constituents
+    - tags
+    - measurements
+    - galleryNumber
+    - objectWikidata_URL
 
 # ログ設定
 logging:

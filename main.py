@@ -26,12 +26,17 @@ def setup_logging(config):
     log_dir = Path(config['logging']['file']).parent
     log_dir.mkdir(parents=True, exist_ok=True)
     
+    # コンソール出力用のハンドラーを作成
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(getattr(logging, config['logging']['level']))
+    console_handler.setFormatter(logging.Formatter(config['logging']['format']))
+    
     logging.basicConfig(
         level=getattr(logging, config['logging']['level']),
         format=config['logging']['format'],
         handlers=[
             logging.FileHandler(config['logging']['file'], encoding='utf-8'),
-            logging.StreamHandler()
+            console_handler
         ]
     )
 
@@ -39,8 +44,8 @@ def setup_logging(config):
 def main():
     """メイン実行関数"""
     parser = argparse.ArgumentParser(description='説明可能AIによる絵画様式分類')
-    parser.add_argument('--mode', choices=['metadata', 'images', 'collect', 'extract', 'train', 'explain', 'all'],
-                       default='all', help='実行モード')
+    parser.add_argument('--mode', choices=['hybrid', 'metadata', 'images', 'collect', 'extract', 'train', 'explain', 'all'],
+                        default='all', help='実行モード')
     parser.add_argument('--config', default='config.yaml', help='設定ファイルのパス')
     
     args = parser.parse_args()
@@ -60,11 +65,17 @@ def main():
     logger.info(f"出力ディレクトリ: {timestamp_manager.get_output_dir()}")
     
     try:
+        if args.mode == 'hybrid':
+            logger.info("ハイブリッドデータ収集を開始...")
+            from src.data_collection.hybrid_collector import HybridCollector
+            collector = HybridCollector(config)
+            collector.collect_all_data()
+            
         if args.mode in ['metadata', 'all']:
             logger.info("メタデータ収集を開始...")
             api_client = MetAPIClient(config)
-            # テスト用にサンプル数を制限
-            api_client.collect_metadata(max_objects=100)
+            # 全データを取得（制限なし）
+            api_client.collect_metadata()
             
         if args.mode in ['images', 'all']:
             logger.info("画像ダウンロードを開始...")
