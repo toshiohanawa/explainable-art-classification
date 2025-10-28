@@ -1,0 +1,35 @@
+# 説明可能AIによる絵画様式分類プロジェクト
+# 依存関係ファイル
+
+# 基本ライブラリ
+numpy>=1.21.0
+pandas>=1.3.0
+matplotlib>=3.4.0
+seaborn>=0.11.0
+plotly>=5.0.0
+
+# 機械学習
+scikit-learn>=1.0.0
+shap>=0.40.0
+
+# 画像処理
+opencv-python>=4.5.0
+Pillow>=8.3.0
+
+# API通信
+requests>=2.25.0
+
+# データ管理
+# sqlite3 は標準ライブラリのため不要
+
+# 開発・テスト
+jupyter>=1.0.0
+pytest>=6.0.0
+black>=21.0.0
+flake8>=3.9.0
+
+# 進捗表示
+tqdm>=4.62.0
+
+# 設定管理
+PyYAML>=5.4.0

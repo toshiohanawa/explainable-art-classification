@@ -1,0 +1,369 @@
+# 説明可能AIによる絵画様式分類プロジェクト
+# .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# プロジェクト固有のファイル
+
+# データファイル（大容量のため）
+data/raw_images/
+data/raw_data/
+data/analysis_*/
+
+# ログファイル
+logs/
+*.log
+
+# 一時ファイル
+*.tmp
+*.temp
+temp/
+tmp/
+
+# 設定ファイル（機密情報を含む可能性）
+config_local.yaml
+.env.local
+
+# モデルファイル（大容量のため）
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+
+# 画像ファイル（大容量のため）
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+
+# 可視化ファイル（大容量のため）
+*.pdf
+*.svg
+*.eps
+
+# 分析結果（タイムスタンプ付きディレクトリ）
+data/analysis_*/
+
+# キャッシュファイル
+.cache/
+cache/
+
+# IDE設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS固有のファイル
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+*.lnk
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# バックアップファイル
+*.bak
+*.backup
+*.old
+
+# 圧縮ファイル
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ドキュメント（生成されたもの）
+docs/_build/
+docs/build/
+
+# テスト結果
+test_results/
+test_output/
+
+# プロファイリング結果
+*.prof
+*.profile
+
+# メモリダンプ
+*.dmp
+*.core
+
+# 一時的な分析結果
+temp_analysis/
+scratch/
+
+# 大容量のデータセット
+datasets/
+large_data/
+
+# 実験結果
+experiments/
+results/
+
+# チェックポイント
+checkpoints/
+*.ckpt
+
+# 学習済みモデル
+models/
+trained_models/
+
+# 特徴量ファイル（大容量のため）
+features/
+*.features
+
+# 前処理済みデータ
+processed_data/
+preprocessed/
+
+# 中間ファイル
+intermediate/
+middle/
+
+# 出力ファイル
+output/
+outputs/
+
+# レポート（生成されたもの）
+reports/
+*.report
+
+# 統計情報
+stats/
+statistics/
+
+# 可視化結果
+visualizations/
+plots/
+charts/
+
+# SHAP説明結果
+shap_explanations/
+explanations/
+
+# 実験ログ
+experiment_logs/
+run_logs/
+
+# ハイパーパラメータチューニング結果
+tuning_results/
+hyperparameter_tuning/
+
+# 交差検証結果
+cv_results/
+cross_validation/
+
+# グリッドサーチ結果
+grid_search_results/
+
+# ベイズ最適化結果
+bayesian_optimization/
+
+# 特徴量選択結果
+feature_selection/
+
+# 次元削減結果
+dimensionality_reduction/
+
+# クラスタリング結果
+clustering_results/
+
+# 異常検知結果
+anomaly_detection/
+
+# 時系列分析結果
+time_series_analysis/
+
+# 自然言語処理結果
+nlp_results/
+
+# 画像処理結果
+image_processing/
+
+# 音声処理結果
+audio_processing/
+
+# 動画処理結果
+video_processing/
+
+# 深層学習結果
+deep_learning/
+
+# 転移学習結果
+transfer_learning/
+
+# ファインチューニング結果
+fine_tuning/
+
+# 蒸留結果
+knowledge_distillation/
+
+# アンサンブル結果
+ensemble_results/
+
+# スタッキング結果
+stacking_results/
+
+# ブレンディング結果
+blending_results/
+
+# バギング結果
+bagging_results/
+
+# ブースティング結果
+boosting_results/
+
+# ランダムフォレスト結果
+random_forest_results/
+
+# 勾配ブースティング結果
+gradient_boosting_results/
+
+# XGBoost結果
+xgboost_results/
+
+# LightGBM結果
+lightgbm_results/
+
+# CatBoost結果
+catboost_results/
+
+# ニューラルネットワーク結果
+neural_network_results/
+
+# CNN結果
+cnn_results/
+
+# RNN結果
+rnn_results/
+
+# LSTM結果
+lstm_results/
+
+# GRU結果
+gru_results/
+
+# Transformer結果
+transformer_results/
+
+# BERT結果
+bert_results/
+
+# GPT結果
+gpt_results/
+
+# その他の大容量ファイル
+*.large
+*.big
+*.huge

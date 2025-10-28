@@ -1,0 +1,76 @@
+# 説明可能AIによる絵画様式分類プロジェクト
+# 設定ファイル
+
+# API設定
+api:
+  base_url: "https://collectionapi.metmuseum.org/public/collection/v1"
+  rate_limit: 80  # リクエスト/秒
+  timeout: 30     # タイムアウト（秒）
+
+# データ設定
+data:
+  output_dir: "data"
+  images_dir: "raw_images"
+  metadata_file: "artwork_metadata.csv"
+  features_file: "color_features.pkl"
+  min_samples_per_class: 250
+  max_samples_per_class: 1000
+  use_timestamp: true  # 分析結果をタイムスタンプ付きフォルダ（yymmddhhmm）に保存（falseにすると固定ディレクトリを使用）
+
+# 画像処理設定
+image_processing:
+  target_size: [512, 512]  # リサイズ後のサイズ
+  color_space: "HSV"       # 色空間（HSV, RGB, LAB）
+  resize_method: "bilinear"
+
+# 特徴量設定
+features:
+  color:
+    - "mean_hue"
+    - "mean_saturation" 
+    - "mean_value"
+    - "hue_std"
+    - "saturation_std"
+    - "value_std"
+    - "contrast"
+    - "color_diversity"
+    - "dominant_colors"
+  
+  composition:
+    - "brightness_distribution"
+    - "color_concentration"
+    - "edge_density"
+
+# 分類設定
+classification:
+  model_type: "random_forest"
+  test_size: 0.2
+  random_state: 42
+  cv_folds: 5
+  
+  # ランダムフォレストパラメータ
+  random_forest:
+    n_estimators: 100
+    max_depth: 10
+    min_samples_split: 5
+    min_samples_leaf: 2
+    random_state: 42
+
+# SHAP設定
+shap:
+  max_samples: 100  # 説明用サンプル数
+  background_samples: 50  # 背景サンプル数
+
+# 可視化設定
+visualization:
+  figure_size: [12, 8]
+  dpi: 300
+  style: "whitegrid"
+  color_palette: "husl"
+  output_dir: "visualizations"
+
+# ログ設定
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/project.log"
