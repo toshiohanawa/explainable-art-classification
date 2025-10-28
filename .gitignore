@@ -105,6 +105,10 @@ data/raw_images/
 # data/raw_data/  # 生データディレクトリはコミット対象
 data/analysis_*/
 
+# ハイブリッドデータ収集の一時ファイル
+data/raw_data/checkpoint.json
+data/raw_data/failed_ids.json
+
 # ログファイル
 logs/
 *.log
