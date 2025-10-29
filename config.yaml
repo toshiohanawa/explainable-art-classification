@@ -4,7 +4,7 @@
 # API設定
 api:
   base_url: "https://collectionapi.metmuseum.org/public/collection/v1"
-  rate_limit: 10  # リクエスト/秒（WAF遮断回避のため大幅に削減）
+  rate_limit: 25  # リクエスト/秒（24時間完結用）
   timeout: 30     # タイムアウト（秒）
 
 # データ設定

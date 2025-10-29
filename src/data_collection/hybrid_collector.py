@@ -9,6 +9,9 @@ import pandas as pd
 import json
 import time
 import logging
+import random
+import pickle
+import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Set
 from datetime import datetime
@@ -45,6 +48,8 @@ class HybridCollector:
         self.output_file = self.raw_data_dir / 'artwork_metadata_full.csv'
         self.checkpoint_file = self.raw_data_dir / 'checkpoint.json'
         self.failed_ids_file = self.raw_data_dir / 'failed_ids.json'
+        self.api_data_file = self.raw_data_dir / 'api_data.json'
+        self.cookies_file = self.raw_data_dir / 'session_cookies.pkl'
         self.qa_report_file = self.raw_data_dir / 'qa_report.txt'
         self.qa_samples_file = self.raw_data_dir / 'qa_samples.csv'
         
@@ -60,21 +65,153 @@ class HybridCollector:
         self.logger = logging.getLogger(__name__)
         self.last_request_time = 0
         
+        # セッション管理（Cookieサポート）
+        self.session = requests.Session()
+        self.load_cookies()  # 既存のCookieを読み込み
+        
         # 進捗管理
         self.processed_ids: Set[int] = set()
         self.failed_ids: Set[int] = set()
         self.api_data: Dict[int, Dict[str, Any]] = {}
         
+        # 人間的な操作をシミュレート
+        self.request_count = 0
+        self.batch_size = 20  # 20リクエストごとに長い休憩（24時間完結用）
+        self.session_refresh_interval = 100  # 50リクエストごとにセッション再初期化
+        self.last_session_refresh = 0
+        self.batch_break_range = (1.0, 2.0)  # バッチ休憩時間の範囲（秒）
+        
+        # User-Agentローテーション（人間的なアクセスをシミュレート）
+        self.user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+        ]
+        
     def _rate_limit_delay(self):
-        """レート制限を考慮した待機"""
+        """レート制限を考慮した待機（1秒あたり7 req/s以下に制御、24時間完結用）"""
         current_time = time.time()
         time_since_last = current_time - self.last_request_time
-        min_interval = 1.0 / self.rate_limit
+        
+        # 1秒あたり7 req/s以下に制御（24時間完結用）
+        base_interval = 1.0 / 7  # 0.143秒（143ms）
+        
+        # ランダムジッタ（±20%の揺らぎ）
+        jitter = random.uniform(0.8, 1.2)
+        min_interval = base_interval * jitter
+        
+        # 最小0.1秒、最大0.3秒の制限
+        min_interval = max(0.1, min(min_interval, 0.3))
         
         if time_since_last < min_interval:
             time.sleep(min_interval - time_since_last)
         
+        # バッチごとの長い休憩（人間的な操作をシミュレート）
+        self.request_count += 1
+        
+        # セッション再初期化のチェック
+        self.refresh_session_if_needed()
+        
+        if self.request_count % self.batch_size == 0:
+            # バッチサイズに応じた休憩時間を計算
+            # 動的に設定された範囲で休憩時間を決定
+            batch_break = random.uniform(self.batch_break_range[0], self.batch_break_range[1])
+            self.logger.info(f"バッチ休憩: {batch_break:.1f}秒待機中...")
+            time.sleep(batch_break)
+            # Cookie保存（定期的に更新）
+            self.save_cookies()
+        else:
+            # バッチ内でもランダムな短い休憩（人間的な操作をシミュレート）
+            if random.random() < 0.3:  # 30%の確率で追加休憩
+                micro_break = random.uniform(0.5, 2.0)
+                self.logger.debug(f"マイクロ休憩: {micro_break:.1f}秒待機中...")
+                time.sleep(micro_break)
+        
         self.last_request_time = time.time()
+    
+    def save_cookies(self):
+        """セッションのCookieを保存"""
+        try:
+            with open(self.cookies_file, 'wb') as f:
+                pickle.dump(self.session.cookies, f)
+            self.logger.debug("Cookieを保存しました")
+        except Exception as e:
+            self.logger.warning(f"Cookie保存エラー: {e}")
+    
+    def load_cookies(self):
+        """保存されたCookieを読み込み"""
+        if self.cookies_file.exists():
+            try:
+                with open(self.cookies_file, 'rb') as f:
+                    self.session.cookies.update(pickle.load(f))
+                self.logger.debug("Cookieを読み込みました")
+            except Exception as e:
+                self.logger.warning(f"Cookie読み込みエラー: {e}")
+    
+    def initialize_session(self):
+        """
+        セッションを初期化（ブラウザアクセスを模倣）
+        最初に軽量なエンドポイントにアクセスしてCookieをセット
+        """
+        self.logger.info("セッション初期化中...")
+        
+        headers = {
+            'User-Agent': self.get_random_user_agent(),
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Referer': 'https://metmuseum.github.io/',
+            'Origin': 'https://metmuseum.github.io'
+        }
+        
+        try:
+            # 軽量なdepartmentsエンドポイントにアクセス
+            response = self.session.get(
+                f"{self.base_url}/departments",
+                headers=headers,
+                timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                self.logger.info("セッション初期化成功")
+                self.save_cookies()
+                self.last_session_refresh = self.request_count
+                return True
+            else:
+                self.logger.warning(f"セッション初期化失敗: HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            self.logger.warning(f"セッション初期化エラー: {e}")
+            return False
+
+    def get_random_user_agent(self):
+        """
+        ランダムなUser-Agentを取得
+        """
+        return random.choice(self.user_agents)
+
+    def refresh_session_if_needed(self):
+        """
+        必要に応じてセッションを再初期化
+        """
+        if self.request_count - self.last_session_refresh >= self.session_refresh_interval:
+            self.logger.info(f"セッション再初期化実行 (リクエスト数: {self.request_count})")
+            
+            # 現在のセッションをクリア
+            self.session.close()
+            self.session = requests.Session()
+            
+            # 新しいセッションで初期化
+            if self.initialize_session():
+                self.logger.info("セッション再初期化成功")
+            else:
+                self.logger.warning("セッション再初期化失敗、既存セッションで継続")
     
     def download_csv(self) -> pd.DataFrame:
         """
@@ -89,7 +226,7 @@ class HybridCollector:
         self.logger.info(f"MetObjects.csvをダウンロード中: {csv_url}")
         
         try:
-            response = requests.get(csv_url, stream=True)
+            response = self.session.get(csv_url, stream=True)
             response.raise_for_status()
             
             # CSVを読み込み
@@ -151,21 +288,31 @@ class HybridCollector:
         
         url = f"{self.base_url}/objects"
         
-        # WAF対策のヘッダーを追加
+        # ブラウザに近いヘッダーを設定
         headers = {
-            'User-Agent': 'MetDataCollector/1.0 (Educational Research; contact: research@example.com)',
-            'Accept': 'application/json',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive'
+            'User-Agent': self.get_random_user_agent(),
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Referer': 'https://metmuseum.github.io/',
+            'Origin': 'https://metmuseum.github.io',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"'
         }
         
         max_retries = 3
-        retry_delay = 30  # WAF遮断後のクールダウン期間（30秒）
+        retry_delay = 60  # WAF遮断後のクールダウン期間（60秒）
         
         for attempt in range(max_retries):
             try:
-                response = requests.get(url, headers=headers, timeout=self.timeout)
+                response = self.session.get(url, headers=headers, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
                 object_ids = data.get('objectIDs', [])
@@ -217,13 +364,23 @@ class HybridCollector:
         
         url = f"{self.base_url}/objects/{object_id}"
         
-        # WAF対策のヘッダーを追加
+        # ブラウザに近いヘッダーを設定
         headers = {
-            'User-Agent': 'MetDataCollector/1.0 (Educational Research; contact: research@example.com)',
-            'Accept': 'application/json',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive'
+            'User-Agent': self.get_random_user_agent(),
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Referer': 'https://metmuseum.github.io/',
+            'Origin': 'https://metmuseum.github.io',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"'
         }
         
         max_retries = self.max_retries
@@ -231,7 +388,7 @@ class HybridCollector:
         
         for attempt in range(max_retries):
             try:
-                response = requests.get(url, headers=headers, timeout=self.timeout)
+                response = self.session.get(url, headers=headers, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
                 
@@ -304,7 +461,11 @@ class HybridCollector:
         with open(self.failed_ids_file, 'w', encoding='utf-8') as f:
             json.dump(list(self.failed_ids), f, indent=2)
         
-        self.logger.info(f"チェックポイント保存: 処理済み {len(self.processed_ids)}件, 失敗 {len(self.failed_ids)}件")
+        # APIデータを別ファイルに保存（ファイルサイズを抑えるため）
+        with open(self.api_data_file, 'w', encoding='utf-8') as f:
+            json.dump(self.api_data, f, indent=2)
+        
+        self.logger.info(f"チェックポイント保存: 処理済み {len(self.processed_ids)}件, 失敗 {len(self.failed_ids)}件, 成功 {len(self.api_data)}件")
     
     def load_checkpoint(self) -> bool:
         """
@@ -323,8 +484,14 @@ class HybridCollector:
             self.processed_ids = set(checkpoint_data.get('processed_ids', []))
             self.failed_ids = set(checkpoint_data.get('failed_ids', []))
             
-            # APIデータも読み込み（部分的な復元）
-            self.logger.info(f"チェックポイント読み込み: 処理済み {len(self.processed_ids)}件, 失敗 {len(self.failed_ids)}件")
+            # APIデータを別ファイルから読み込み
+            if self.api_data_file.exists():
+                with open(self.api_data_file, 'r', encoding='utf-8') as f:
+                    self.api_data = json.load(f)
+            else:
+                self.api_data = {}
+            
+            self.logger.info(f"チェックポイント読み込み: 処理済み {len(self.processed_ids)}件, 失敗 {len(self.failed_ids)}件, 成功 {len(self.api_data)}件")
             return True
             
         except Exception as e:
@@ -404,6 +571,57 @@ class HybridCollector:
         self.logger.info(f"データ統合完了: {len(merged_df)}件")
         return merged_df
     
+    def retry_failed_ids(self, max_retries: int = 2):
+        """
+        失敗したIDの再取得を実行
+        
+        Args:
+            max_retries: 最大再試行回数
+        """
+        if not self.failed_ids:
+            self.logger.info("再試行対象の失敗IDがありません")
+            return
+        
+        self.logger.info(f"失敗したIDの再取得を開始: {len(self.failed_ids)}件")
+        
+        retry_count = 0
+        while self.failed_ids and retry_count < max_retries:
+            retry_count += 1
+            self.logger.info(f"再試行 {retry_count}/{max_retries}: {len(self.failed_ids)}件")
+            
+            # 失敗したIDのリストをコピー（ループ中に変更されるため）
+            failed_ids_to_retry = list(self.failed_ids)
+            self.failed_ids.clear()  # 一時的にクリア
+            
+            # 再試行実行
+            for object_id in failed_ids_to_retry:
+                api_data = self.get_object_details(object_id)
+                if api_data:
+                    # 成功した場合
+                    extracted_data = self.extract_api_fields(api_data)
+                    self.api_data[object_id] = extracted_data
+                    self.processed_ids.add(object_id)
+                    self.logger.debug(f"再試行成功: ID {object_id}")
+                else:
+                    # 再び失敗した場合
+                    self.failed_ids.add(object_id)
+                    self.logger.debug(f"再試行失敗: ID {object_id}")
+            
+            # 進捗表示
+            success_count = len(self.api_data)
+            failed_count = len(self.failed_ids)
+            self.logger.info(f"再試行 {retry_count} 完了: 成功 {success_count}件, 失敗 {failed_count}件")
+            
+            # チェックポイント保存
+            self.save_checkpoint()
+            
+            # 再試行間のクールダウン
+            if self.failed_ids and retry_count < max_retries:
+                self.logger.info("次の再試行まで30秒待機...")
+                time.sleep(30)
+        
+        self.logger.info(f"失敗ID再取得完了: 最終成功 {len(self.api_data)}件, 最終失敗 {len(self.failed_ids)}件")
+
     def generate_qa_report(self, df: pd.DataFrame):
         """
         品質管理レポートを生成
@@ -480,6 +698,10 @@ class HybridCollector:
         """
         self.logger.info("ハイブリッドデータ収集を開始...")
         
+        # セッション初期化（Cookieセット）
+        self.initialize_session()
+        time.sleep(2)  # 初期化後の待機
+        
         try:
             # 1. CSVダウンロード
             if not self.csv_file.exists() or not resume:
@@ -506,7 +728,10 @@ class HybridCollector:
             # 4. API詳細データ収集
             self.collect_api_data(all_object_ids, resume=resume)
             
-            # 5. データ統合
+            # 5. 失敗したIDの再取得
+            self.retry_failed_ids(max_retries=2)
+            
+            # 6. データ統合
             merged_df = self.merge_data(csv_df)
             
             # 6. 統合データ保存
