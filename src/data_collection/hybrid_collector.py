@@ -151,12 +151,21 @@ class HybridCollector:
         
         url = f"{self.base_url}/objects"
         
+        # WAF対策のヘッダーを追加
+        headers = {
+            'User-Agent': 'MetDataCollector/1.0 (Educational Research; contact: research@example.com)',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+        
         max_retries = 3
-        retry_delay = 2  # 2秒から開始（通常のエラー処理）
+        retry_delay = 30  # WAF遮断後のクールダウン期間（30秒）
         
         for attempt in range(max_retries):
             try:
-                response = requests.get(url, timeout=self.timeout)
+                response = requests.get(url, headers=headers, timeout=self.timeout)
                 response.raise_for_status()
                 data = response.json()
                 object_ids = data.get('objectIDs', [])
@@ -177,10 +186,16 @@ class HybridCollector:
                         self.logger.info("CSVデータのみを使用して処理を継続します")
                         return None
                 elif e.response.status_code == 403:
-                    # 403: Forbidden - アクセス拒否
-                    self.logger.warning(f"アクセス拒否エラー: {e}")
-                    self.logger.info("CSVデータのみを使用して処理を継続します")
-                    return None
+                    # 403: Forbidden - WAF遮断の可能性
+                    if attempt < max_retries - 1:
+                        self.logger.warning(f"WAF遮断検知 (Error 15), {retry_delay}秒クールダウン後に再試行... (試行 {attempt + 1}/{max_retries})")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # 指数バックオフ
+                        continue
+                    else:
+                        self.logger.error(f"WAF遮断エラー: 最大再試行回数に達しました - {e}")
+                        self.logger.info("CSVデータのみを使用して処理を継続します")
+                        return None
                 else:
                     self.logger.warning(f"HTTPエラー: {e.response.status_code} - {e}")
                     return None
@@ -202,12 +217,21 @@ class HybridCollector:
         
         url = f"{self.base_url}/objects/{object_id}"
         
+        # WAF対策のヘッダーを追加
+        headers = {
+            'User-Agent': 'MetDataCollector/1.0 (Educational Research; contact: research@example.com)',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
+        }
+        
         max_retries = self.max_retries
-        retry_delay = 1  # 1秒から開始（高速化）
+        retry_delay = 5  # WAF対策のため5秒から開始
         
         for attempt in range(max_retries):
             try:
-                response = requests.get(url, timeout=self.timeout)
+                response = requests.get(url, headers=headers, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
                 
