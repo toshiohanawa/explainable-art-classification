@@ -34,18 +34,27 @@ class HybridCollector:
         self.api_config = config['api']
         self.data_config = config['data']
         self.hybrid_config = config.get('hybrid_collection', {})
+        self.painting_filters = config.get('painting_filters', {})
         
         self.base_url = self.api_config['base_url']
         self.rate_limit = self.api_config['rate_limit']
         self.timeout = self.api_config['timeout']
         
         # ディレクトリ設定
-        self.raw_data_dir = Path(self.data_config['output_dir']) / 'raw_data'
+        self.raw_data_dir = Path(self.data_config['raw_data_dir'])
         self.raw_data_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.filtered_data_dir = Path(self.data_config['filtered_data_dir'])
+        self.filtered_data_dir.mkdir(parents=True, exist_ok=True)
         
         # ファイルパス
         self.csv_file = self.raw_data_dir / 'MetObjects.csv'
         self.output_file = self.raw_data_dir / 'artwork_metadata_full.csv'
+        
+        # フィルタリング済みデータ用パス
+        self.paintings_metadata_file = self.filtered_data_dir / self.data_config['paintings_metadata_file']
+        self.paintings_images_dir = self.filtered_data_dir / self.data_config['paintings_images_dir']
+        self.filter_report_file = self.filtered_data_dir / 'filter_report.txt'
         self.checkpoint_file = self.raw_data_dir / 'checkpoint.json'
         self.failed_ids_file = self.raw_data_dir / 'failed_ids.json'
         self.api_data_file = self.raw_data_dir / 'api_data.json'
@@ -273,6 +282,242 @@ class HybridCollector:
         self.logger.info(f"欠損値の確認: {missing_counts[missing_counts > 0].to_dict()}")
         
         self.logger.info(f"前処理完了: {len(df)}件")
+        return df
+
+    def filter_painting_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        絵画関連のデータのみをフィルタリング
+        
+        Args:
+            df: フィルタリング前のDataFrame
+            
+        Returns:
+            フィルタリング後のDataFrame
+        """
+        self.logger.info("絵画データのフィルタリングを開始...")
+        
+        initial_count = len(df)
+        self.logger.info(f"フィルタリング前: {initial_count:,}件")
+        
+        # フィルター条件を取得
+        departments = self.painting_filters.get('departments', [])
+        classifications = self.painting_filters.get('classifications', [])
+        
+        # フィルター条件を適用
+        filtered_df = df.copy()
+        
+        # Departmentフィルター
+        if departments:
+            dept_mask = filtered_df['Department'].isin(departments)
+            filtered_df = filtered_df[dept_mask]
+            self.logger.info(f"Departmentフィルター後: {len(filtered_df):,}件")
+        
+        # Classificationフィルター
+        if classifications:
+            class_mask = filtered_df['Classification'].isin(classifications)
+            filtered_df = filtered_df[class_mask]
+            self.logger.info(f"Classificationフィルター後: {len(filtered_df):,}件")
+        
+        final_count = len(filtered_df)
+        reduction_rate = ((initial_count - final_count) / initial_count) * 100
+        
+        self.logger.info(f"フィルタリング完了: {final_count:,}件 ({reduction_rate:.1f}%削減)")
+        
+        # フィルター結果の詳細をログ出力
+        if 'Department' in filtered_df.columns:
+            dept_counts = filtered_df['Department'].value_counts()
+            self.logger.info("フィルター後のDepartment分布:")
+            for dept, count in dept_counts.head(10).items():
+                self.logger.info(f"  {dept}: {count:,}件")
+        
+        if 'Classification' in filtered_df.columns:
+            class_counts = filtered_df['Classification'].value_counts()
+            self.logger.info("フィルター後のClassification分布:")
+            for classification, count in class_counts.head(10).items():
+                self.logger.info(f"  {classification}: {count:,}件")
+        
+        return filtered_df
+
+    def save_filtered_data(self, filtered_df: pd.DataFrame):
+        """
+        フィルタリング済みデータを保存
+        
+        Args:
+            filtered_df: フィルタリング済みのDataFrame
+        """
+        self.logger.info("フィルタリング済みデータを保存中...")
+        
+        # 絵画画像ディレクトリを作成
+        self.paintings_images_dir.mkdir(parents=True, exist_ok=True)
+        
+        # メタデータを保存
+        filtered_df.to_csv(self.paintings_metadata_file, index=False, encoding='utf-8')
+        self.logger.info(f"絵画メタデータ保存完了: {self.paintings_metadata_file}")
+        
+        # フィルタリングレポートを生成
+        self.generate_filter_report(filtered_df)
+        
+        self.logger.info(f"フィルタリング済みデータ保存完了: {len(filtered_df):,}件")
+
+    def generate_filter_report(self, filtered_df: pd.DataFrame):
+        """
+        フィルタリング結果のレポートを生成
+        
+        Args:
+            filtered_df: フィルタリング済みのDataFrame
+        """
+        self.logger.info("フィルタリングレポートを生成中...")
+        
+        report_lines = []
+        report_lines.append("=== 絵画データフィルタリングレポート ===")
+        report_lines.append(f"生成日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append("")
+        
+        # フィルター条件
+        report_lines.append("## 適用されたフィルター条件")
+        departments = self.painting_filters.get('departments', [])
+        classifications = self.painting_filters.get('classifications', [])
+        
+        report_lines.append(f"Department: {departments}")
+        report_lines.append(f"Classification: {classifications}")
+        report_lines.append("")
+        
+        # フィルタリング結果
+        report_lines.append("## フィルタリング結果")
+        report_lines.append(f"フィルタリング後件数: {len(filtered_df):,}件")
+        report_lines.append("")
+        
+        # Department分布
+        if 'Department' in filtered_df.columns:
+            dept_counts = filtered_df['Department'].value_counts()
+            report_lines.append("### Department分布")
+            for dept, count in dept_counts.head(10).items():
+                percentage = (count / len(filtered_df)) * 100
+                report_lines.append(f"{dept}: {count:,}件 ({percentage:.1f}%)")
+            report_lines.append("")
+        
+        # Classification分布
+        if 'Classification' in filtered_df.columns:
+            class_counts = filtered_df['Classification'].value_counts()
+            report_lines.append("### Classification分布")
+            for classification, count in class_counts.head(10).items():
+                percentage = (count / len(filtered_df)) * 100
+                report_lines.append(f"{classification}: {count:,}件 ({percentage:.1f}%)")
+            report_lines.append("")
+        
+        # Medium分布（上位10件）
+        if 'Medium' in filtered_df.columns:
+            medium_counts = filtered_df['Medium'].value_counts()
+            report_lines.append("### Medium分布（上位10件）")
+            for medium, count in medium_counts.head(10).items():
+                percentage = (count / len(filtered_df)) * 100
+                report_lines.append(f"{medium}: {count:,}件 ({percentage:.1f}%)")
+            report_lines.append("")
+        
+        # Culture分布（上位10件）
+        if 'Culture' in filtered_df.columns:
+            culture_counts = filtered_df['Culture'].value_counts()
+            report_lines.append("### Culture分布（上位10件）")
+            for culture, count in culture_counts.head(10).items():
+                percentage = (count / len(filtered_df)) * 100
+                report_lines.append(f"{culture}: {count:,}件 ({percentage:.1f}%)")
+            report_lines.append("")
+        
+        # 画像URLの有無
+        image_columns = ['primaryImage', 'primaryImageSmall', 'additionalImages']
+        for col in image_columns:
+            if col in filtered_df.columns:
+                has_image = filtered_df[col].notna().sum()
+                percentage = (has_image / len(filtered_df)) * 100
+                report_lines.append(f"{col}: {has_image:,}件 ({percentage:.1f}%)")
+        
+        with open(self.filter_report_file, 'w', encoding='utf-8') as f:
+            f.write("\n".join(report_lines))
+        
+        self.logger.info(f"フィルタリングレポート生成完了: {self.filter_report_file}")
+
+    def download_painting_images(self, df: pd.DataFrame, max_images: int = None):
+        """
+        絵画画像をダウンロード
+        
+        Args:
+            df: 画像URLが含まれるDataFrame
+            max_images: 最大ダウンロード件数（Noneの場合は全件）
+        """
+        self.logger.info("絵画画像のダウンロードを開始...")
+        
+        # 画像URLが存在するレコードをフィルタリング
+        image_df = df[df['primaryImageSmall'].notna()].copy()
+        
+        if max_images:
+            image_df = image_df.head(max_images)
+        
+        total_images = len(image_df)
+        self.logger.info(f"ダウンロード対象: {total_images:,}件")
+        
+        # 画像ディレクトリを作成
+        self.paintings_images_dir.mkdir(parents=True, exist_ok=True)
+        
+        downloaded_count = 0
+        failed_count = 0
+        
+        for idx, row in image_df.iterrows():
+            try:
+                object_id = row['Object_ID']
+                image_url = row['primaryImageSmall']
+                
+                if pd.isna(image_url) or not image_url:
+                    continue
+                
+                # ファイル拡張子を取得
+                file_extension = Path(image_url).suffix
+                if not file_extension:
+                    file_extension = '.jpg'  # デフォルト
+                
+                # ファイル名を生成
+                image_filename = f"{object_id}{file_extension}"
+                image_path = self.paintings_images_dir / image_filename
+                
+                # 既に存在する場合はスキップ
+                if image_path.exists():
+                    downloaded_count += 1
+                    continue
+                
+                # レート制限を考慮した待機
+                self._rate_limit_delay()
+                
+                # 画像をダウンロード
+                response = self.session.get(image_url, timeout=self.timeout)
+                response.raise_for_status()
+                
+                # ファイルに保存
+                with open(image_path, 'wb') as f:
+                    f.write(response.content)
+                
+                downloaded_count += 1
+                
+                # 進捗表示
+                if (downloaded_count + failed_count) % 100 == 0:
+                    progress = (downloaded_count + failed_count) / total_images * 100
+                    self.logger.info(f"画像ダウンロード進捗: {downloaded_count + failed_count}/{total_images} ({progress:.1f}%)")
+                
+            except Exception as e:
+                failed_count += 1
+                self.logger.warning(f"画像ダウンロード失敗 (ID: {object_id}): {e}")
+                continue
+        
+        # 最終結果
+        self.logger.info(f"画像ダウンロード完了: 成功 {downloaded_count:,}件, 失敗 {failed_count:,}件")
+        
+        # DataFrameのimage_downloadedフラグを更新
+        for idx, row in image_df.iterrows():
+            object_id = row['Object_ID']
+            image_filename = f"{object_id}{Path(row['primaryImageSmall']).suffix or '.jpg'}"
+            image_path = self.paintings_images_dir / image_filename
+            
+            if image_path.exists():
+                df.loc[df['Object_ID'] == object_id, 'image_downloaded'] = True
+        
         return df
     
     def get_all_object_ids(self) -> Optional[List[int]]:
@@ -712,10 +957,16 @@ class HybridCollector:
                 csv_df = pd.read_csv(self.csv_file, low_memory=False)
                 csv_df = self.preprocess_csv(csv_df)
             
-            # 2. API全ID取得
+            # 2. 絵画データのフィルタリング
+            csv_df = self.filter_painting_data(csv_df)
+            
+            # 2.1 フィルタリング済みデータを保存
+            self.save_filtered_data(csv_df)
+            
+            # 3. API全ID取得
             api_object_ids = self.get_all_object_ids()
             
-            # 3. CSVとAPIのID和集合
+            # 4. CSVとAPIのID和集合
             csv_object_ids = csv_df['Object_ID'].dropna().astype(int).tolist()
             
             if api_object_ids:
@@ -725,20 +976,20 @@ class HybridCollector:
                 all_object_ids = csv_object_ids
                 self.logger.info(f"CSVデータのみ使用: {len(all_object_ids)}件 (API取得失敗のため)")
             
-            # 4. API詳細データ収集
+            # 5. API詳細データ収集
             self.collect_api_data(all_object_ids, resume=resume)
             
-            # 5. 失敗したIDの再取得
+            # 6. 失敗したIDの再取得
             self.retry_failed_ids(max_retries=2)
             
-            # 6. データ統合
+            # 7. データ統合
             merged_df = self.merge_data(csv_df)
             
-            # 6. 統合データ保存
+            # 8. 統合データ保存
             merged_df.to_csv(self.output_file, index=False, encoding='utf-8')
             self.logger.info(f"統合データ保存完了: {self.output_file}")
             
-            # 7. 品質管理レポート生成
+            # 9. 品質管理レポート生成
             self.generate_qa_report(merged_df)
             
             self.logger.info("ハイブリッドデータ収集完了")

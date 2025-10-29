@@ -10,9 +10,14 @@ api:
 # データ設定
 data:
   output_dir: "data"
+  raw_data_dir: "data/raw_data"
+  filtered_data_dir: "data/filtered_data"
   images_dir: "raw_images"
+  paintings_images_dir: "paintings_images"
   metadata_file: "artwork_metadata.csv"
+  paintings_metadata_file: "paintings_metadata.csv"
   features_file: "color_features.pkl"
+  paintings_features_file: "paintings_features.pkl"
   min_samples_per_class: 250
   max_samples_per_class: 1000
   use_timestamp: true  # 分析結果をタイムスタンプ付きフォルダ（yymmddhhmm）に保存（falseにすると固定ディレクトリを使用）
@@ -84,6 +89,21 @@ hybrid_collection:
     - measurements
     - galleryNumber
     - objectWikidata_URL
+
+# 絵画フィルター設定（分析結果に基づく）
+painting_filters:
+  # Departmentフィルターは適用しない（全Department対象）
+  departments: []
+  
+  # 絵画関連Classification（純粋な絵画のみ）
+  classifications:
+    - "Paintings"
+  
+  # Mediumフィルターは適用しない（多様な技法の絵画を対象とする）
+  
+  # 予想される絞り込み後の件数（全Departmentの絵画）
+  expected_count: 9005
+  expected_percentage: 1.9
 
 # ログ設定
 logging:
