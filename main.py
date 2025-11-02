@@ -23,22 +23,8 @@ from src.utils.timestamp_manager import TimestampManager
 
 def setup_logging(config):
     """ログ設定を初期化"""
-    log_dir = Path(config['logging']['file']).parent
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # コンソール出力用のハンドラーを作成
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(getattr(logging, config['logging']['level']))
-    console_handler.setFormatter(logging.Formatter(config['logging']['format']))
-    
-    logging.basicConfig(
-        level=getattr(logging, config['logging']['level']),
-        format=config['logging']['format'],
-        handlers=[
-            logging.FileHandler(config['logging']['file'], encoding='utf-8'),
-            console_handler
-        ]
-    )
+    from src.utils.logger import setup_logging as setup_logging_util
+    setup_logging_util(config=config)
 
 
 def main():

@@ -3,23 +3,19 @@
 MetObjects.csvを分析して絵画関連のフィルター条件を特定するスクリプト
 """
 
+import sys
+from pathlib import Path
+
+# プロジェクトルートをパスに追加
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 import pandas as pd
 import numpy as np
-from pathlib import Path
-import logging
 from collections import Counter
-import re
+from src.utils.config_manager import ConfigManager
+from src.utils.logger import setup_logging, get_logger
 
-# ログ設定
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('csv_analysis.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
 class PaintingDataAnalyzer:
     """絵画データ分析クラス"""
@@ -28,21 +24,22 @@ class PaintingDataAnalyzer:
         self.csv_path = Path(csv_path)
         self.df = None
         self.results = {}
+        self.logger = get_logger(__name__)
         
     def load_data(self):
         """CSVデータを読み込み"""
-        logger.info(f"CSVデータを読み込み中: {self.csv_path}")
+        self.logger.info(f"CSVデータを読み込み中: {self.csv_path}")
         try:
             self.df = pd.read_csv(self.csv_path, low_memory=False)
-            logger.info(f"データ読み込み完了: {len(self.df):,}件")
+            self.logger.info(f"データ読み込み完了: {len(self.df):,}件")
             return True
         except Exception as e:
-            logger.error(f"データ読み込みエラー: {e}")
+            self.logger.error(f"データ読み込みエラー: {e}")
             return False
     
     def analyze_departments(self):
         """Department別の分析"""
-        logger.info("Department別の分析を開始...")
+        self.logger.info("Department別の分析を開始...")
         
         dept_counts = self.df['Department'].value_counts()
         self.results['departments'] = dept_counts.to_dict()
@@ -60,15 +57,15 @@ class PaintingDataAnalyzer:
         
         self.results['painting_departments'] = painting_departments
         
-        logger.info(f"Department総数: {len(dept_counts)}")
-        logger.info(f"絵画関連Department: {len(painting_departments)}")
+        self.logger.info(f"Department総数: {len(dept_counts)}")
+        self.logger.info(f"絵画関連Department: {len(painting_departments)}")
         for dept in painting_departments[:10]:  # 上位10件表示
             count = dept_counts[dept]
-            logger.info(f"  {dept}: {count:,}件")
+            self.logger.info(f"  {dept}: {count:,}件")
     
     def analyze_classifications(self):
         """Classification別の分析"""
-        logger.info("Classification別の分析を開始...")
+        self.logger.info("Classification別の分析を開始...")
         
         class_counts = self.df['Classification'].value_counts()
         self.results['classifications'] = class_counts.to_dict()
@@ -86,15 +83,15 @@ class PaintingDataAnalyzer:
         
         self.results['painting_classifications'] = painting_classifications
         
-        logger.info(f"Classification総数: {len(class_counts)}")
-        logger.info(f"絵画関連Classification: {len(painting_classifications)}")
+        self.logger.info(f"Classification総数: {len(class_counts)}")
+        self.logger.info(f"絵画関連Classification: {len(painting_classifications)}")
         for classification in painting_classifications[:10]:  # 上位10件表示
             count = class_counts[classification]
-            logger.info(f"  {classification}: {count:,}件")
+            self.logger.info(f"  {classification}: {count:,}件")
     
     def analyze_object_names(self):
         """Object Name別の分析"""
-        logger.info("Object Name別の分析を開始...")
+        self.logger.info("Object Name別の分析を開始...")
         
         # 絵画関連キーワードでフィルタリング
         painting_keywords = [
@@ -116,14 +113,14 @@ class PaintingDataAnalyzer:
         painting_name_counts = Counter(painting_objects)
         self.results['painting_object_names'] = dict(painting_name_counts.most_common(50))
         
-        logger.info(f"絵画関連Object Name: {len(painting_objects):,}件")
-        logger.info("上位20件:")
+        self.logger.info(f"絵画関連Object Name: {len(painting_objects):,}件")
+        self.logger.info("上位20件:")
         for name, count in painting_name_counts.most_common(20):
-            logger.info(f"  {name}: {count:,}件")
+            self.logger.info(f"  {name}: {count:,}件")
     
     def analyze_mediums(self):
         """Medium別の分析"""
-        logger.info("Medium別の分析を開始...")
+        self.logger.info("Medium別の分析を開始...")
         
         medium_counts = self.df['Medium'].value_counts()
         self.results['mediums'] = medium_counts.to_dict()
@@ -144,15 +141,15 @@ class PaintingDataAnalyzer:
         
         self.results['painting_mediums'] = painting_mediums
         
-        logger.info(f"Medium総数: {len(medium_counts)}")
-        logger.info(f"絵画関連Medium: {len(painting_mediums)}")
+        self.logger.info(f"Medium総数: {len(medium_counts)}")
+        self.logger.info(f"絵画関連Medium: {len(painting_mediums)}")
         for medium in painting_mediums[:15]:  # 上位15件表示
             count = medium_counts[medium]
-            logger.info(f"  {medium}: {count:,}件")
+            self.logger.info(f"  {medium}: {count:,}件")
     
     def analyze_cultures(self):
         """Culture別の分析"""
-        logger.info("Culture別の分析を開始...")
+        self.logger.info("Culture別の分析を開始...")
         
         culture_counts = self.df['Culture'].value_counts()
         self.results['cultures'] = culture_counts.to_dict()
@@ -170,13 +167,13 @@ class PaintingDataAnalyzer:
         
         self.results['painting_cultures'] = painting_culture_counts
         
-        logger.info("絵画関連Culture（上位15件）:")
+        self.logger.info("絵画関連Culture（上位15件）:")
         for culture, count in sorted(painting_culture_counts.items(), key=lambda x: x[1], reverse=True)[:15]:
-            logger.info(f"  {culture}: {count:,}件")
+            self.logger.info(f"  {culture}: {count:,}件")
     
     def test_filter_combinations(self):
         """フィルター条件の組み合わせをテスト"""
-        logger.info("フィルター条件の組み合わせをテスト中...")
+        self.logger.info("フィルター条件の組み合わせをテスト中...")
         
         # 基本フィルター条件
         filters = {
@@ -199,10 +196,10 @@ class PaintingDataAnalyzer:
             
             count = len(filtered_df)
             percentage = (count / len(self.df)) * 100
-            logger.info(f"{filter_name}フィルター: {count:,}件 ({percentage:.1f}%)")
+            self.logger.info(f"{filter_name}フィルター: {count:,}件 ({percentage:.1f}%)")
         
         # 複合フィルターのテスト
-        logger.info("\n複合フィルターのテスト:")
+        self.logger.info("\n複合フィルターのテスト:")
         
         # Department + Classification
         if filters['department'] and filters['classification']:
@@ -212,7 +209,7 @@ class PaintingDataAnalyzer:
             ]
             count = len(dept_class_df)
             percentage = (count / len(self.df)) * 100
-            logger.info(f"Department + Classification: {count:,}件 ({percentage:.1f}%)")
+            self.logger.info(f"Department + Classification: {count:,}件 ({percentage:.1f}%)")
         
         # Department + Medium
         if filters['department'] and filters['medium']:
@@ -222,7 +219,7 @@ class PaintingDataAnalyzer:
             ]
             count = len(dept_medium_df)
             percentage = (count / len(self.df)) * 100
-            logger.info(f"Department + Medium: {count:,}件 ({percentage:.1f}%)")
+            self.logger.info(f"Department + Medium: {count:,}件 ({percentage:.1f}%)")
         
         # 3つの条件すべて
         if all(filters.values()):
@@ -233,7 +230,7 @@ class PaintingDataAnalyzer:
             ]
             count = len(all_filters_df)
             percentage = (count / len(self.df)) * 100
-            logger.info(f"全条件: {count:,}件 ({percentage:.1f}%)")
+            self.logger.info(f"全条件: {count:,}件 ({percentage:.1f}%)")
             
             # 最適なフィルター条件を保存
             self.results['recommended_filters'] = {
@@ -246,7 +243,7 @@ class PaintingDataAnalyzer:
     
     def save_results(self, output_file: str = "painting_analysis_results.txt"):
         """分析結果をファイルに保存"""
-        logger.info(f"分析結果を保存中: {output_file}")
+        self.logger.info(f"分析結果を保存中: {output_file}")
         
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write("=== 絵画データ分析結果 ===\n\n")
@@ -289,7 +286,7 @@ class PaintingDataAnalyzer:
     
     def run_analysis(self):
         """分析を実行"""
-        logger.info("=== 絵画データ分析を開始 ===")
+        self.logger.info("=== 絵画データ分析を開始 ===")
         
         if not self.load_data():
             return False
@@ -302,11 +299,22 @@ class PaintingDataAnalyzer:
         self.test_filter_combinations()
         self.save_results()
         
-        logger.info("=== 分析完了 ===")
+        self.logger.info("=== 分析完了 ===")
         return True
+
 
 def main():
     """メイン関数"""
+    # 設定読み込み
+    config_manager = ConfigManager()
+    config = config_manager.get_config()
+    
+    # ログ設定
+    setup_logging(
+        log_file='csv_analysis.log',
+        config=config
+    )
+    
     analyzer = PaintingDataAnalyzer()
     success = analyzer.run_analysis()
     
@@ -315,5 +323,7 @@ def main():
     else:
         print("分析中にエラーが発生しました。ログを確認してください。")
 
+
 if __name__ == "__main__":
     main()
+

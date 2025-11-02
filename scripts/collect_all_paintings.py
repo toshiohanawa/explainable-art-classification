@@ -5,38 +5,33 @@
 """
 
 import sys
-import os
-import logging
 from pathlib import Path
 
 # プロジェクトルートをパスに追加
-project_root = Path(__file__).parent
-sys.path.append(str(project_root))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 from src.utils.config_manager import ConfigManager
+from src.utils.logger import setup_logging, get_logger
 from src.data_collection.hybrid_collector import HybridCollector
 
-def setup_logging():
-    """ログ設定"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('collect_all_paintings.log', encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
 
 def collect_all_paintings():
     """全9,005件の絵画データ収集を実行"""
-    logger = logging.getLogger(__name__)
+    # 設定読み込み
+    config_manager = ConfigManager()
+    config = config_manager.get_config()
+    
+    # ログ設定
+    setup_logging(
+        log_file='collect_all_paintings.log',
+        config=config
+    )
+    logger = get_logger(__name__)
+    
     logger.info("=== 全絵画データ収集開始（9,005件） ===")
     
     try:
-        # 設定読み込み
-        config_manager = ConfigManager()
-        config = config_manager.get_config()
-        
         # レート制限を安全な値に設定（全件処理のため）
         config['api']['rate_limit'] = 20  # 20 req/s
         
@@ -98,9 +93,9 @@ def collect_all_paintings():
         logger.error(traceback.format_exc())
         return False
 
+
 def main():
     """メイン関数"""
-    setup_logging()
     success = collect_all_paintings()
     
     if success:
@@ -109,5 +104,7 @@ def main():
     else:
         print("\n全件データ収集中にエラーが発生しました。ログを確認してください。")
 
+
 if __name__ == "__main__":
     main()
+

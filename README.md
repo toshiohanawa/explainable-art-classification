@@ -25,11 +25,22 @@
 explainable-art-classification/
 ├── src/                    # ソースコード
 │   ├── data_collection/    # データ収集
-│   ├── feature_extraction/ # 特徴量抽出
+│   ├── feature_extraction/  # 特徴量抽出
 │   ├── model_training/     # モデル訓練
 │   ├── explainability/     # SHAP説明
 │   ├── visualization/      # 可視化
 │   └── utils/             # ユーティリティ
+│       ├── config_manager.py   # 設定管理
+│       ├── logger.py            # 共通ログ設定
+│       ├── status_checker.py    # ステータスチェック
+│       └── timestamp_manager.py # タイムスタンプ管理
+├── scripts/               # 実行スクリプト
+│   ├── collect_all_paintings.py   # 全件データ収集
+│   ├── download_painting_images.py # 画像ダウンロード
+│   ├── filter_paintings_only.py    # 絵画フィルタリング
+│   ├── test_painting_collection.py  # テスト収集
+│   ├── check_status.py             # ステータスチェック
+│   └── analyze_csv_for_paintings.py # CSV分析
 ├── data/                  # データファイル
 ├── notebooks/             # Jupyterノートブック
 ├── tests/                 # テストファイル
@@ -119,6 +130,31 @@ python main.py --mode train
 
 # SHAP説明のみ
 python main.py --mode explain
+```
+
+### データ収集スクリプト
+
+```bash
+# 絵画データのフィルタリング
+python scripts/filter_paintings_only.py
+
+# 全件データ収集（9,005件）
+python scripts/collect_all_paintings.py
+
+# 画像ダウンロード
+python scripts/download_painting_images.py
+
+# テスト収集（200件）
+python scripts/test_painting_collection.py
+
+# ステータスチェック
+python scripts/check_status.py --type all
+python scripts/check_status.py --type collection  # データ収集のみ
+python scripts/check_status.py --type download    # ダウンロードのみ
+python scripts/check_status.py --type test        # テスト結果のみ
+
+# CSV分析
+python scripts/analyze_csv_for_paintings.py
 ```
 
 ### Jupyterノートブック

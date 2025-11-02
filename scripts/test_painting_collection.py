@@ -4,38 +4,33 @@
 """
 
 import sys
-import os
-import logging
 from pathlib import Path
 
 # プロジェクトルートをパスに追加
-project_root = Path(__file__).parent
-sys.path.append(str(project_root))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 from src.utils.config_manager import ConfigManager
+from src.utils.logger import setup_logging, get_logger
 from src.data_collection.hybrid_collector import HybridCollector
 
-def setup_logging():
-    """ログ設定"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('test_painting_collection.log', encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
 
 def test_painting_collection():
     """絵画データ収集のテスト実行"""
-    logger = logging.getLogger(__name__)
+    # 設定読み込み
+    config_manager = ConfigManager()
+    config = config_manager.get_config()
+    
+    # ログ設定
+    setup_logging(
+        log_file='test_painting_collection.log',
+        config=config
+    )
+    logger = get_logger(__name__)
+    
     logger.info("=== 絵画データ収集テスト開始（200件） ===")
     
     try:
-        # 設定読み込み
-        config_manager = ConfigManager()
-        config = config_manager.get_config()
-        
         # テスト用にレート制限を調整（安全のため）
         config['api']['rate_limit'] = 10  # 10 req/s
         
@@ -102,9 +97,9 @@ def test_painting_collection():
         logger.error(traceback.format_exc())
         return False
 
+
 def main():
     """メイン関数"""
-    setup_logging()
     success = test_painting_collection()
     
     if success:
@@ -113,5 +108,7 @@ def main():
     else:
         print("\nテスト中にエラーが発生しました。ログを確認してください。")
 
+
 if __name__ == "__main__":
     main()
+

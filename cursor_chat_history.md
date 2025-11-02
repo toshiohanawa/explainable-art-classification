@@ -9,6 +9,7 @@
 ## 📝 更新履歴
 
 - **v1.0** (2025-10-29 06:30): 初回作成 - データ収集システム効率化、全メタデータ取得実装、画像取得最適化
+- **v2.0** (2025-11-02 21:40): リファクタリング - 共通ログ設定の抽出、チェック機能の統合、スクリプトの整理
 
 ---
 
@@ -392,6 +393,107 @@ data/
 - **即座に実行可能**: CSVデータのみで分析開始
 - **API復旧後**: ハイブリッドシステムでAPI増補データ取得
 - **現在のCSVデータ**: 十分な分析が可能
+
+---
+
+## 2025年11月2日 21:30-21:40 - プロジェクトリファクタリング
+
+### 実施したリファクタリング内容
+
+#### 1. 共通ログ設定の抽出 (21:30-21:32)
+- **新規ファイル**: `src/utils/logger.py`
+- **機能**: プロジェクト全体で使用する共通ログ設定を提供
+- **効果**: 重複コードの削減、統一的なログ設定
+
+#### 2. チェック機能の統合 (21:32-21:35)
+- **新規ファイル**: `src/utils/status_checker.py`
+- **機能**: データ収集、画像ダウンロードなどの進捗状況を確認
+- **統合したスクリプト**:
+  - `check_completion.py` → `StatusChecker.check_data_collection_status()`
+  - `check_download_completion.py` → `StatusChecker.check_download_status()`
+  - `check_download_progress.py` → `StatusChecker.check_download_status()`
+  - `check_test_results.py` → `StatusChecker.check_test_results()`
+
+#### 3. スクリプトの整理 (21:35-21:38)
+- **新規ディレクトリ**: `scripts/`
+- **移動したスクリプト**:
+  - `collect_all_paintings.py` → `scripts/collect_all_paintings.py`
+  - `download_painting_images.py` → `scripts/download_painting_images.py`
+  - `filter_paintings_only.py` → `scripts/filter_paintings_only.py`
+  - `test_painting_collection.py` → `scripts/test_painting_collection.py`
+  - `analyze_csv_for_paintings.py` → `scripts/analyze_csv_for_paintings.py`
+- **統合したスクリプト**: 
+  - チェック系スクリプト4つ → `scripts/check_status.py`に統合
+
+#### 4. コードの更新 (21:38-21:40)
+- **main.py**: 共通ログ設定を使用するように更新
+- **全スクリプト**: 共通ログ設定とStatusCheckerを使用
+- **utils/__init__.py**: 新しいモジュールをエクスポート
+
+### リファクタリングの効果
+
+#### コード品質の向上
+- **重複コード削減**: `setup_logging()`関数の重複を削除
+- **統一的なインターフェース**: 共通ログ設定とステータスチェック
+- **保守性の向上**: 変更時の影響範囲を最小化
+
+#### プロジェクト構造の改善
+- **明確な責務分離**: 
+  - `src/`: コア機能
+  - `scripts/`: 実行スクリプト
+- **モジュール性の向上**: 共通機能の抽出と再利用
+
+#### 使いやすさの向上
+- **統一されたコマンド**: `python scripts/check_status.py --type all`
+- **オプションの充実**: 詳細表示、タイプ指定など
+
+### 変更されたファイル
+
+#### 新規作成
+- `src/utils/logger.py`
+- `src/utils/status_checker.py`
+- `scripts/__init__.py`
+- `scripts/collect_all_paintings.py`
+- `scripts/download_painting_images.py`
+- `scripts/filter_paintings_only.py`
+- `scripts/test_painting_collection.py`
+- `scripts/check_status.py`
+- `scripts/analyze_csv_for_paintings.py`
+
+#### 更新
+- `main.py`: 共通ログ設定を使用
+- `src/utils/__init__.py`: 新しいモジュールをエクスポート
+- `README.md`: 新しいプロジェクト構造とスクリプト使用方法を追加
+
+#### 削除
+- `check_completion.py`
+- `check_download_completion.py`
+- `check_download_progress.py`
+- `check_test_results.py`
+- `collect_all_paintings.py`（ルート）
+- `download_painting_images.py`（ルート）
+- `filter_paintings_only.py`（ルート）
+- `test_painting_collection.py`（ルート）
+- `analyze_csv_for_paintings.py`（ルート）
+
+### リファクタリング後の使用方法
+
+```bash
+# データ収集スクリプト
+python scripts/filter_paintings_only.py
+python scripts/collect_all_paintings.py
+python scripts/download_painting_images.py
+python scripts/test_painting_collection.py
+
+# ステータスチェック（統合版）
+python scripts/check_status.py --type all
+python scripts/check_status.py --type collection
+python scripts/check_status.py --type download
+python scripts/check_status.py --type test --detailed
+
+# CSV分析
+python scripts/analyze_csv_for_paintings.py
+```
 
 ---
 
