@@ -106,6 +106,17 @@ painting_filters:
   expected_count: 2290
   expected_percentage: 0.5
 
+# WikiArt_VLMデータセット設定
+wikiart_vlm:
+  base_path: "data/WikiArt_VLM-main/WikiArt_VLM-main"
+  generation_models:
+    - "Stable-Diffusion"
+    - "FLUX"
+    - "F-Lite"
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+
 # ログ設定
 logging:
   level: "INFO"
