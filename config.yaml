@@ -92,8 +92,9 @@ hybrid_collection:
 
 # 絵画フィルター設定（分析結果に基づく）
 painting_filters:
-  # Departmentフィルターは適用しない（全Department対象）
-  departments: []
+  # Departmentフィルター: European Paintingsのみ
+  departments:
+    - "European Paintings"
   
   # 絵画関連Classification（純粋な絵画のみ）
   classifications:
@@ -101,9 +102,9 @@ painting_filters:
   
   # Mediumフィルターは適用しない（多様な技法の絵画を対象とする）
   
-  # 予想される絞り込み後の件数（全Departmentの絵画）
-  expected_count: 9005
-  expected_percentage: 1.9
+  # 予想される絞り込み後の件数（European Paintingsの絵画）
+  expected_count: 2290
+  expected_percentage: 0.5
 
 # ログ設定
 logging:

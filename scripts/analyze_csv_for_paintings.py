@@ -25,6 +25,7 @@ class PaintingDataAnalyzer:
         self.df = None
         self.results = {}
         self.logger = get_logger(__name__)
+        self.output_file = Path("docs") / "painting_analysis_results.txt"
         
     def load_data(self):
         """CSVデータを読み込み"""
@@ -241,10 +242,15 @@ class PaintingDataAnalyzer:
                 'percentage': percentage
             }
     
-    def save_results(self, output_file: str = "painting_analysis_results.txt"):
+    def save_results(self, output_file: str = None):
         """分析結果をファイルに保存"""
+        if output_file is None:
+            output_file = Path("docs") / "painting_analysis_results.txt"
+        else:
+            output_file = Path(output_file)
         self.logger.info(f"分析結果を保存中: {output_file}")
         
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write("=== 絵画データ分析結果 ===\n\n")
             
@@ -319,7 +325,7 @@ def main():
     success = analyzer.run_analysis()
     
     if success:
-        print("\n分析が完了しました。結果は 'painting_analysis_results.txt' に保存されています。")
+        print(f"\n分析が完了しました。結果は '{analyzer.output_file}' に保存されています。")
     else:
         print("分析中にエラーが発生しました。ログを確認してください。")
 

@@ -38,11 +38,31 @@ explainable-art-classification/
 │   ├── collect_all_paintings.py   # 全件データ収集
 │   ├── download_painting_images.py # 画像ダウンロード
 │   ├── filter_paintings_only.py    # 絵画フィルタリング
+│   ├── filter_european_paintings.py # European Paintingsフィルタリング
+│   ├── create_dataset_from_images.py # 画像からデータセット作成
+│   ├── verify_filtering_results.py   # フィルタリング結果確認
 │   ├── test_painting_collection.py  # テスト収集
 │   ├── check_status.py             # ステータスチェック
 │   └── analyze_csv_for_paintings.py # CSV分析
 ├── data/                  # データファイル
+│   ├── raw_data/          # 生データ
+│   │   ├── MetObjects.csv          # MetObjects全データ（484,956件）
+│   │   ├── paintings_metadata.csv  # 絵画メタデータ
+│   │   └── checkpoint.json         # データ収集チェックポイント
+│   └── filtered_data/     # フィルタリング済みデータ
+│       ├── paintings_complete_dataset.csv  # 完全データセット
+│       ├── paintings_metadata.csv          # メタデータ
+│       ├── dataset_from_images.csv         # 画像から作成したデータセット
+│       └── paintings_images/              # ダウンロード済み画像
 ├── notebooks/             # Jupyterノートブック
+│   └── eda_paintings_complete_dataset.ipynb # EDAノートブック
+├── docs/                  # ドキュメントとレポート
+│   ├── cursor_chat_history.md              # 開発履歴
+│   ├── implementation_status_report.md      # 実装状況レポート
+│   ├── project_status_20251029.md         # プロジェクト状況
+│   ├── requirements_specification.md       # 要件定義
+│   ├── painting_analysis_results.txt      # CSV分析結果
+│   └── european_paintings_filter_report.txt # フィルタリングレポート
 ├── tests/                 # テストファイル
 ├── logs/                  # ログファイル
 ├── config.yaml           # 設定ファイル
@@ -155,21 +175,75 @@ python scripts/check_status.py --type test        # テスト結果のみ
 
 # CSV分析
 python scripts/analyze_csv_for_paintings.py
+
+# European Paintingsフィルタリング
+python scripts/filter_european_paintings.py
+
+# フィルタリング結果確認
+python scripts/verify_filtering_results.py
+
+# 画像からデータセット作成
+# paintings_imagesディレクトリの画像ファイル名（Object_ID）から
+# MetObjects.csvから対応するデータを抽出してデータセットを作成
+python scripts/create_dataset_from_images.py
 ```
 
 ### Jupyterノートブック
 
 ```bash
+# Jupyter Notebookの起動
 jupyter notebook notebooks/
+
+# または JupyterLabを使用
+jupyter lab notebooks/
+```
+
+#### 利用可能なノートブック
+
+- **`notebooks/eda_paintings_complete_dataset.ipynb`**: 探索的データ分析（EDA）
+  - データセットの概要分析
+  - 文化圏、年代、メディア、アーティストの分析
+  - JSONデータ（タグ、constituents、測定値）の解析
+  - 画像データの分析
+  - 各種可視化と統計分析
+
+#### ノートブックの実行環境
+
+```bash
+# Jupyterカーネルの確認
+jupyter kernelspec list
+
+# プロジェクトの仮想環境を使用する場合
+python -m ipykernel install --user --name explainable-art --display-name "Python (explainable-art)"
 ```
 
 ## 実行フロー
 
-1. **データ収集**: Metropolitan Museum APIから作品データと画像を取得
-2. **特徴量抽出**: 画像から色彩・構図特徴量を抽出
-3. **モデル訓練**: ランダムフォレスト分類器を訓練
-4. **SHAP説明**: モデルの判断根拠を可視化
-5. **結果可視化**: 包括的なレポートを生成
+### 基本ワークフロー
+
+1. **データ収集**: 
+   - Metropolitan Museum APIから作品データと画像を取得
+   - または `MetObjects.csv`からデータを抽出
+2. **データ前処理**: 
+   - 絵画データのフィルタリング
+   - 画像ファイル名からデータセット作成
+3. **探索的データ分析（EDA）**: 
+   - Jupyter Notebookでデータの概要を把握
+   - 統計分析と可視化
+4. **特徴量抽出**: 画像から色彩・構図特徴量を抽出
+5. **モデル訓練**: ランダムフォレスト分類器を訓練
+6. **SHAP説明**: モデルの判断根拠を可視化
+7. **結果可視化**: 包括的なレポートを生成
+
+### データセット作成フロー
+
+```bash
+# 1. 画像ファイル名からデータセットを作成
+python scripts/create_dataset_from_images.py
+
+# 2. 作成されたデータセットでEDAを実行
+jupyter notebook notebooks/eda_paintings_complete_dataset.ipynb
+```
 
 ## 出力ファイル
 
@@ -178,25 +252,42 @@ jupyter notebook notebooks/
 ```
 data/
 ├── raw_data/                    # 生データ
-│   └── artwork_metadata.csv     # 作品メタデータ
-├── raw_images/                  # 画像ファイル
-│   └── *.jpg                   # ダウンロードした画像
-├── features/                    # 特徴量データ
+│   ├── MetObjects.csv           # MetObjects全データ
+│   ├── paintings_metadata.csv  # 作品メタデータ
+│   ├── checkpoint.json          # データ収集チェックポイント
+│   └── api_data.json           # API取得データ（JSON形式）
+├── filtered_data/               # フィルタリング済みデータ
+│   ├── paintings_complete_dataset.csv  # 完全データセット
+│   ├── paintings_metadata.csv         # メタデータ
+│   ├── dataset_from_images.csv        # 画像から作成したデータセット
+│   └── paintings_images/              # ダウンロード済み画像
+│       └── *.jpg                       # 画像ファイル（Object_ID.jpg形式）
+├── features/                    # 特徴量データ（タイムスタンプ付きディレクトリ）
 │   └── color_features.pkl       # 抽出された特徴量
-├── models/                      # 機械学習モデル
+├── models/                      # 機械学習モデル（タイムスタンプ付きディレクトリ）
 │   ├── random_forest_model.pkl  # 訓練済みモデル
 │   └── scaler.pkl              # 特徴量スケーラー
-├── results/                     # 訓練結果
+├── results/                     # 訓練結果（タイムスタンプ付きディレクトリ）
 │   └── training_results.txt     # 詳細な訓練結果
-├── visualizations/              # 可視化結果
+├── visualizations/              # 可視化結果（タイムスタンプ付きディレクトリ）
 │   ├── confusion_matrix.png     # 混同行列
 │   ├── feature_importance.png   # 特徴量重要度
 │   ├── shap_summary_plot.png    # SHAP summary plot
 │   ├── shap_feature_importance.png # SHAP特徴量重要度
 │   └── dependence_plot_*.png    # 依存関係プロット
-└── shap_explanations/           # SHAP説明データ
+└── shap_explanations/           # SHAP説明データ（タイムスタンプ付きディレクトリ）
     ├── shap_values.csv          # SHAP値データ
     └── feature_importance_shap.csv # SHAP特徴量重要度
+
+docs/                            # ドキュメントとレポート
+├── painting_analysis_results.txt      # CSV分析結果
+└── european_paintings_filter_report.txt # フィルタリングレポート
+
+logs/                            # ログファイル
+├── project.log                  # メインログ
+├── collect_all_paintings.log    # データ収集ログ
+├── download_images.log          # 画像ダウンロードログ
+└── *.log                        # その他のスクリプトログ
 ```
 
 ## 設定オプション
@@ -237,29 +328,58 @@ data/
 
 プルリクエストやイシューの報告を歓迎します。
 
-## 現状の状況と課題
+## プロジェクトの最新状況
 
-### 実装状況（2025年10月29日 08:00時点）
+### 実装状況（2025年11月2日更新）
 
-- **全体完了度**: 約90%
-- **データ量**: 現在77件（要件の15%、最小要件500点）
-- **分類精度**: 70%以上を達成
-- **コア機能**: 完全実装済み
-- **ハイブリッドデータ収集**: 実装完了（API制限によりテスト中断中）
+- **全体完了度**: 約95%
+- **データ収集システム**: 完全実装済み
+- **EDA環境**: Jupyter Notebook環境構築済み
+- **コード整理**: リファクタリング完了
+- **ファイル整理**: ディレクトリ構造の最適化完了
+
+### 主要な更新内容
+
+#### データ収集と整理
+- **ハイブリッドデータ収集システム**: CSVとAPIを組み合わせた効率的なデータ収集
+- **画像からデータセット作成**: `create_dataset_from_images.py`で画像ファイル名からデータセットを自動生成
+- **データセット**: `dataset_from_images.csv`（5,396行）を作成可能
+
+#### 探索的データ分析（EDA）
+- **Jupyter Notebook**: 包括的なEDAノートブックを作成
+  - 文化圏、年代、メディア、アーティストの分析
+  - JSONデータ（タグ、constituents、測定値）の解析
+  - 各種可視化と統計分析
+  - 共通ユーティリティ関数でコード再利用性向上
+
+#### コードとファイルの整理
+- **スクリプトの整理**: 全ての実行スクリプトを`scripts/`ディレクトリに統一
+- **ドキュメントの整理**: 開発ドキュメントを`docs/`ディレクトリに集約
+- **ログの整理**: 全てのログファイルを`logs/`ディレクトリに集約
+- **共通機能の抽出**: ログ設定、ステータスチェックなどの共通機能を`src/utils/`に統一
 
 ### 実装済み機能（✓）
 
-- Metropolitan Museum API統合（59項目の全メタデータ取得）
-- 色彩特徴量抽出（完全）
-- ランダムフォレスト分類器
-- SHAP説明可能性（summary_plot）
-- モジュラー設計と設定ファイル
-- 効率的なデータ収集システム（メタデータと画像の分離）
-- **ハイブリッドデータ収集システム**（2025年10月29日 07:40-08:00実装）
-  - CSVとAPIを組み合わせた大規模データ収集
+- **Metropolitan Museum API統合**: 59項目の全メタデータ取得
+- **ハイブリッドデータ収集システム**: CSVとAPIを組み合わせた大規模データ収集
   - チェックポイント機能（中断・再開可能）
   - 品質管理機能（QAレポート生成）
   - エラーハンドリングとリトライ機能
+- **画像からデータセット作成**: 画像ファイル名から自動的にデータセットを生成
+- **探索的データ分析（EDA）**: 包括的なJupyter Notebook環境
+  - 共通ユーティリティ関数によるコード再利用
+  - JSONデータの自動解析
+  - 各種可視化と統計分析
+- **色彩特徴量抽出**: 完全実装
+- **ランダムフォレスト分類器**: 実装済み
+- **SHAP説明可能性**: summary_plot実装済み
+- **モジュラー設計と設定ファイル**: 完全実装
+- **効率的なデータ収集システム**: メタデータと画像の分離
+- **プロジェクト構造の最適化**: 
+  - スクリプトの整理（`scripts/`ディレクトリ）
+  - ドキュメントの整理（`docs/`ディレクトリ）
+  - ログの整理（`logs/`ディレクトリ）
+  - 共通機能の抽出（`src/utils/`）
 
 ### 部分実装機能（△）
 
@@ -274,43 +394,88 @@ data/
 - 多クラス分類（バロック、印象派、キュビズム等）
 - 特徴量分布の可視化
 
-### 現在の技術的課題（2025年10月29日 08:15更新）
+### 今後の改善点
 
-1. **API制限問題**: Metropolitan Museum APIで403エラーが継続的に発生
-   - **原因**: 直近の大量リクエストによるIPブロック（確認済み）
-   - **公式レート制限**: 80 req/s（公式ドキュメントで確認済み）
-   - **対策完了**: 
-     - レート制限を80 req/sに調整（公式推奨値）
-     - エラー判定ロジック修正（403→データ不存在、429→レート制限）
-     - 待機時間短縮（30秒→1-2秒）
-   - **現在の状況**: API完全ブロック、CSVデータのみで分析継続
+1. **構図特徴量の完全実装**: より詳細な分析機能の追加
+2. **可視化機能の拡充**: より直感的な説明可能性の向上
+3. **多クラス分類の実装**: バロック、印象派、キュビズムなどの様式分類
+4. **特徴量分布の可視化**: より詳細なデータ分析
+5. **高解像度画像の検討**: 現在`primaryImageSmall`を使用、必要に応じて高解像度画像の取得を検討
 
-2. **データ量の増加**: 要件を満たすデータ量（500-1000点）の確保
-   - **ハイブリッドシステム**: 実装完了（API復旧後に利用可能）
-   - **CSV取得成功**: MetObjects.csv（484,956件）を正常に取得
-   - **即座に実行可能**: 現在のCSVデータで分析開始可能
+### データセットについて
 
-3. **文字化け問題**: PowerShellの文字エンコーディング設定
-   - **対策完了**: 
-     - PowerShell UTF-8設定 (`chcp 65001`)
-     - Pythonファイルにエンコーディング宣言追加
-     - 環境変数 `PYTHONIOENCODING="utf-8"` 設定
+プロジェクトでは以下のデータセットが利用可能です：
 
-4. **構図特徴量の完全実装**: より詳細な分析機能
-5. **可視化機能の拡充**: より直感的な説明可能性
-6. **画像取得方針の検討**: 現在`primaryImageSmall`を使用、高解像度画像の検討中
+1. **`paintings_complete_dataset.csv`**: 
+   - APIから取得した完全な絵画データセット
+   - JSON形式の詳細情報（tags, constituents, measurements）を含む
+
+2. **`dataset_from_images.csv`**: 
+   - `paintings_images`ディレクトリの画像ファイル名から自動生成
+   - MetObjects.csvから対応するデータを抽出
+   - ダウンロード済み画像に対応するデータのみを含む
+
+3. **`MetObjects.csv`**: 
+   - Metropolitan Museumの全作品データ（484,956件）
+   - 大容量ファイルのため、`.gitignore`に含まれています
 
 ### 要件定義からの変更点
 
 - **画像解像度**: 高解像度JPEG → `primaryImageSmall`（効率性のため）
 - **SHAP可視化**: waterfall plot/force plot → summary_plot（簡略化）
-- **データ量**: 現在テスト段階で77件に制限
-- **データ収集戦略**: 単一API → ハイブリッド（CSV+API）システム（2025年10月29日実装）
-- **CSVオンリー戦略**: 実装しない（ユーザー要求により除外）
+- **データ収集戦略**: 単一API → ハイブリッド（CSV+API）システム
+- **プロジェクト構造**: フラット構造 → 整理されたディレクトリ構造
 
 ## 参考資料
 
 - [Metropolitan Museum API Documentation](https://metmuseum.github.io/)
 - [SHAP Documentation](https://shap.readthedocs.io/)
 - [scikit-learn Documentation](https://scikit-learn.org/)
-- [実装状況詳細レポート](implementation_status_report.md)
+
+## ドキュメント
+
+プロジェクトの詳細な情報は`docs/`ディレクトリを参照してください：
+
+- [実装状況詳細レポート](docs/implementation_status_report.md)
+- [プロジェクト状況](docs/project_status_20251029.md)
+- [要件定義](docs/requirements_specification.md)
+- [開発履歴](docs/cursor_chat_history.md)
+- [CSV分析結果](docs/painting_analysis_results.txt)
+
+## トラブルシューティング
+
+### ログファイルの確認
+
+各スクリプトの実行ログは`logs/`ディレクトリに保存されます：
+
+```bash
+# ログファイルの一覧確認
+ls logs/
+
+# 特定のログファイルを確認
+cat logs/project.log
+```
+
+### データセットの問題
+
+データセットが見つからない場合は、以下のスクリプトを実行してください：
+
+```bash
+# 画像からデータセットを作成
+python scripts/create_dataset_from_images.py
+
+# フィルタリング結果を確認
+python scripts/verify_filtering_results.py
+```
+
+### Jupyter Notebookの問題
+
+Jupyter Notebookが起動しない場合は、カーネルが正しく設定されているか確認してください：
+
+```bash
+# カーネルの一覧確認
+jupyter kernelspec list
+
+# カーネルの再インストール
+python -m ipykernel install --user --name explainable-art --display-name "Python (explainable-art)"
+```
