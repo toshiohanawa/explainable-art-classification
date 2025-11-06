@@ -88,32 +88,32 @@ class ResultVisualizer:
         axes[0, 0].bar(range(len(period_counts)), period_counts.values)
         axes[0, 0].set_xticks(range(len(period_counts)))
         axes[0, 0].set_xticklabels(period_counts.index, rotation=45, ha='right')
-        axes[0, 0].set_title('期間別作品数 (上位10)')
-        axes[0, 0].set_ylabel('作品数')
+        axes[0, 0].set_title('Artworks by Period (Top 10)')
+        axes[0, 0].set_ylabel('Number of Artworks')
         
         # 2. 印象派 vs 非印象派
         impressionist_counts = df['is_impressionist'].value_counts()
         axes[0, 1].pie(impressionist_counts.values, 
-                      labels=['非印象派', '印象派'],
+                      labels=['Non-Impressionist', 'Impressionist'],
                       autopct='%1.1f%%',
                       startangle=90)
-        axes[0, 1].set_title('印象派 vs 非印象派の分布')
+        axes[0, 1].set_title('Impressionist vs Non-Impressionist Distribution')
         
         # 3. 部門別分布
         dept_counts = df['department'].value_counts().head(8)
         axes[1, 0].barh(range(len(dept_counts)), dept_counts.values)
         axes[1, 0].set_yticks(range(len(dept_counts)))
         axes[1, 0].set_yticklabels(dept_counts.index)
-        axes[1, 0].set_title('部門別作品数 (上位8)')
-        axes[1, 0].set_xlabel('作品数')
+        axes[1, 0].set_title('Department Distribution (Top 8)')
+        axes[1, 0].set_xlabel('Number of Artworks')
         
         # 4. 文化圏別分布
         culture_counts = df['culture'].value_counts().head(8)
         axes[1, 1].bar(range(len(culture_counts)), culture_counts.values)
         axes[1, 1].set_xticks(range(len(culture_counts)))
         axes[1, 1].set_xticklabels(culture_counts.index, rotation=45, ha='right')
-        axes[1, 1].set_title('文化圏別作品数 (上位8)')
-        axes[1, 1].set_ylabel('作品数')
+        axes[1, 1].set_title('Culture Distribution (Top 8)')
+        axes[1, 1].set_ylabel('Number of Artworks')
         
         plt.tight_layout()
         
@@ -170,11 +170,11 @@ class ResultVisualizer:
             data_to_plot = [impressionist_data[feature].dropna(), 
                            non_impressionist_data[feature].dropna()]
             
-            axes[i].boxplot(data_to_plot, labels=['印象派', '非印象派'])
+            axes[i].boxplot(data_to_plot, labels=['Impressionist', 'Non-Impressionist'])
             axes[i].set_title(feature, fontsize=10)
             axes[i].tick_params(axis='x', rotation=45)
         
-        plt.suptitle('印象派 vs 非印象派 特徴量比較', fontsize=16)
+        plt.suptitle('Impressionist vs Non-Impressionist Feature Comparison', fontsize=16)
         plt.tight_layout()
         
         # 保存
@@ -273,15 +273,15 @@ class ResultVisualizer:
         misclass_matrix = misclass_counts.unstack(fill_value=0)
         
         sns.heatmap(misclass_matrix, annot=True, fmt='d', cmap='Blues', ax=axes[0, 0])
-        axes[0, 0].set_title('誤分類マトリックス')
-        axes[0, 0].set_xlabel('予測ラベル')
-        axes[0, 0].set_ylabel('実際のラベル')
+        axes[0, 0].set_title('Misclassification Matrix')
+        axes[0, 0].set_xlabel('Predicted Label')
+        axes[0, 0].set_ylabel('Actual Label')
         
         # 2. 予測確率の分布
         axes[0, 1].hist(misclassified_df['predicted_prob'], bins=20, alpha=0.7)
-        axes[0, 1].set_title('誤分類作品の予測確率分布')
-        axes[0, 1].set_xlabel('印象派予測確率')
-        axes[0, 1].set_ylabel('頻度')
+        axes[0, 1].set_title('Prediction Probability Distribution (Misclassified)')
+        axes[0, 1].set_xlabel('Impressionist Prediction Probability')
+        axes[0, 1].set_ylabel('Frequency')
         
         # 3. 期間別誤分類率
         period_misclass = misclassified_df.groupby('period').size()
@@ -291,14 +291,14 @@ class ResultVisualizer:
         axes[1, 0].bar(range(len(period_error_rate)), period_error_rate.values)
         axes[1, 0].set_xticks(range(len(period_error_rate)))
         axes[1, 0].set_xticklabels(period_error_rate.index, rotation=45, ha='right')
-        axes[1, 0].set_title('期間別誤分類率 (上位10)')
-        axes[1, 0].set_ylabel('誤分類率')
+        axes[1, 0].set_title('Misclassification Rate by Period (Top 10)')
+        axes[1, 0].set_ylabel('Misclassification Rate')
         
         # 4. 誤分類作品の例
         sample_misclass = misclassified_df.head(5)
         axes[1, 1].axis('off')
         
-        text = "誤分類作品の例:\n\n"
+        text = "Examples of Misclassified Artworks:\n\n"
         for _, row in sample_misclass.iterrows():
             text += f"• {row['title'][:30]}...\n"
             text += f"  Artist: {row['artist']}\n"
@@ -462,15 +462,15 @@ class ResultVisualizer:
         period_counts = df['period'].value_counts().head(10)
         fig.add_trace(
             go.Bar(x=list(period_counts.index), y=list(period_counts.values),
-                   name="期間別作品数"),
+                   name="Artworks by Period"),
             row=1, col=1
         )
         
         # 2. 印象派 vs 非印象派
         impressionist_counts = df['is_impressionist'].value_counts()
         fig.add_trace(
-            go.Pie(labels=['非印象派', '印象派'], values=list(impressionist_counts.values),
-                   name="印象派分布"),
+            go.Pie(labels=['Non-Impressionist', 'Impressionist'], values=list(impressionist_counts.values),
+                   name="Impressionist Distribution"),
             row=1, col=2
         )
         
@@ -478,7 +478,7 @@ class ResultVisualizer:
         dept_counts = df['department'].value_counts().head(8)
         fig.add_trace(
             go.Bar(x=list(dept_counts.values), y=list(dept_counts.index),
-                   orientation='h', name="部門別作品数"),
+                   orientation='h', name="Artworks by Department"),
             row=2, col=1
         )
         
@@ -486,11 +486,11 @@ class ResultVisualizer:
         feature_names = ['mean_hue', 'mean_saturation', 'mean_value', 'contrast']
         importance_values = [0.3, 0.25, 0.2, 0.15]
         fig.add_trace(
-            go.Bar(x=feature_names, y=importance_values, name="特徴量重要度"),
+            go.Bar(x=feature_names, y=importance_values, name="Feature Importance"),
             row=2, col=2
         )
         
-        fig.update_layout(height=800, showlegend=False, title_text="絵画様式分類ダッシュボード")
+        fig.update_layout(height=800, showlegend=False, title_text="Art Style Classification Dashboard")
         
         # HTMLファイルとして保存
         dashboard_file = self.viz_dir / 'dashboard.html'

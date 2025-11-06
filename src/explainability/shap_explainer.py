@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shap
@@ -21,25 +21,40 @@ from ..utils.timestamp_manager import TimestampManager
 class SHAPExplainer:
     """SHAP説明クラス"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], task_type: str = 'impressionist', 
+                 model_file: Optional[str] = None, features_file: Optional[str] = None,
+                 timestamp_manager: Optional['TimestampManager'] = None):
         """
         初期化
         
         Args:
             config: 設定辞書
+            task_type: 分類タスクタイプ ('impressionist': 印象派 vs 非印象派, 'authenticity': 本物 vs フェイク)
+            model_file: モデルファイルのパス（Noneの場合は自動検出）
+            features_file: 特徴量ファイルのパス（Noneの場合は自動検出）
+            timestamp_manager: タイムスタンプ管理オブジェクト（Noneの場合は新規作成）
+                             段階的実行で同じタイムスタンプを使用する場合に指定
         """
+        from ..utils.timestamp_manager import TimestampManager
+        
         self.config = config
         self.data_config = config['data']
         self.shap_config = config['shap']
         self.viz_config = config['visualization']
+        self.task_type = task_type  # 'impressionist' or 'authenticity'
+        self.model_file = model_file  # カスタムモデルファイルパス
+        self.features_file = features_file  # カスタム特徴量ファイルパス
         
         self.logger = logging.getLogger(__name__)
         
         # 生データは固定ディレクトリから読み込み、分析結果はタイムスタンプ付きディレクトリに保存
         self.base_output_dir = Path(self.data_config['output_dir'])
         
-        # タイムスタンプ管理（分析結果用）
-        self.timestamp_manager = TimestampManager(config)
+        # タイムスタンプ管理（共有または新規作成）
+        if timestamp_manager is not None:
+            self.timestamp_manager = timestamp_manager
+        else:
+            self.timestamp_manager = TimestampManager(config)
         self.output_dir = self.timestamp_manager.get_output_dir()
         self.shap_dir = self.timestamp_manager.get_shap_explanations_dir()
         self.viz_dir = self.timestamp_manager.get_visualizations_dir()
@@ -56,31 +71,62 @@ class SHAPExplainer:
     
     def load_model_and_data(self) -> Tuple[pd.DataFrame, np.ndarray]:
         """モデルとデータを読み込み"""
-        # 既存のモデルファイルを探す（タイムスタンプ付きディレクトリから）
         base_dir = self.base_output_dir
         model_file = None
         scaler_file = None
         features_file = None
         
-        # 既存のanalysis_*ディレクトリから最新のものを探す
-        analysis_dirs = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
-        if analysis_dirs:
-            # 最新のディレクトリを選択
-            latest_dir = max(analysis_dirs, key=lambda x: x.stat().st_mtime)
-            model_file = latest_dir / 'models' / 'random_forest_model.pkl'
-            scaler_file = latest_dir / 'models' / 'scaler.pkl'
-            features_file = latest_dir / 'features' / self.data_config['features_file']
-            
-            # タイムスタンプ付きディレクトリにファイルがない場合は、直接のディレクトリを試す
+        # カスタムファイルパスが指定されている場合
+        if self.model_file is not None:
+            model_file = Path(self.model_file)
             if not model_file.exists():
-                model_file = base_dir / 'models' / 'random_forest_model.pkl'
+                raise FileNotFoundError(f"モデルファイルが見つかりません: {model_file}")
+        
+        if self.features_file is not None:
+            features_file = Path(self.features_file)
+            if not features_file.exists():
+                raise FileNotFoundError(f"特徴量ファイルが見つかりません: {features_file}")
+        
+        # タスクタイプに応じてモデルファイルを検索
+        if model_file is None:
+            analysis_dirs = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
+            if analysis_dirs:
+                latest_dir = max(analysis_dirs, key=lambda x: x.stat().st_mtime)
+                
+                if self.task_type == 'authenticity':
+                    # WikiArt_VLMモデルファイルを検索
+                    wikiart_model_files = list((latest_dir / 'models').glob('random_forest_model*.pkl'))
+                    if wikiart_model_files:
+                        model_file = wikiart_model_files[0]
+                    else:
+                        model_file = latest_dir / 'models' / 'random_forest_model.pkl'
+                else:
+                    model_file = latest_dir / 'models' / 'random_forest_model.pkl'
+                
+                scaler_file = latest_dir / 'models' / 'scaler.pkl'
+                
+                # タイムスタンプ付きディレクトリにファイルがない場合は直接のディレクトリを試す
+                if not model_file.exists():
+                    if self.task_type == 'authenticity':
+                        wikiart_model_files = list((base_dir / 'models').glob('random_forest_model*.pkl'))
+                        if wikiart_model_files:
+                            model_file = wikiart_model_files[0]
+                        else:
+                            model_file = base_dir / 'models' / 'random_forest_model.pkl'
+                    else:
+                        model_file = base_dir / 'models' / 'random_forest_model.pkl'
+                    scaler_file = base_dir / 'models' / 'scaler.pkl'
+            else:
+                # フォールバック: 直接のmodelsディレクトリ
+                if self.task_type == 'authenticity':
+                    wikiart_model_files = list((base_dir / 'models').glob('random_forest_model*.pkl'))
+                    if wikiart_model_files:
+                        model_file = wikiart_model_files[0]
+                    else:
+                        model_file = base_dir / 'models' / 'random_forest_model.pkl'
+                else:
+                    model_file = base_dir / 'models' / 'random_forest_model.pkl'
                 scaler_file = base_dir / 'models' / 'scaler.pkl'
-                features_file = base_dir / 'features' / self.data_config['features_file']
-        else:
-            # フォールバック: 直接のmodelsディレクトリ
-            model_file = base_dir / 'models' / 'random_forest_model.pkl'
-            scaler_file = base_dir / 'models' / 'scaler.pkl'
-            features_file = base_dir / 'features' / self.data_config['features_file']
         
         if not model_file.exists():
             raise FileNotFoundError(f"モデルファイルが見つかりません: {model_file}")
@@ -89,15 +135,51 @@ class SHAPExplainer:
             model_data = pickle.load(f)
         
         self.model = model_data['model']
-        self.label_encoder = model_data['label_encoder']
+        self.label_encoder = model_data.get('label_encoder')  # authenticityタスクではNoneの可能性がある
         self.feature_columns = model_data['feature_columns']
         
         # スケーラーを読み込み
+        if scaler_file is None:
+            # スケーラーファイルのパスを推定
+            analysis_dirs_scaler = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
+            if analysis_dirs_scaler:
+                latest_dir = max(analysis_dirs_scaler, key=lambda x: x.stat().st_mtime)
+                if self.task_type == 'authenticity':
+                    wikiart_scaler_files = list((latest_dir / 'models').glob('wikiart_vlm_scaler*.pkl'))
+                    if wikiart_scaler_files:
+                        scaler_file = wikiart_scaler_files[0]
+                    else:
+                        scaler_file = latest_dir / 'models' / 'scaler.pkl'
+                else:
+                    scaler_file = latest_dir / 'models' / 'scaler.pkl'
+            else:
+                scaler_file = base_dir / 'models' / 'scaler.pkl'
+        
         if scaler_file.exists():
             with open(scaler_file, 'rb') as f:
                 self.scaler = pickle.load(f)
         
-        # 特徴量データを読み込み
+        # 特徴量ファイルの検索
+        if features_file is None:
+            analysis_dirs_features = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
+            if self.task_type == 'authenticity':
+                # WikiArt_VLM特徴量ファイルを検索
+                if analysis_dirs_features:
+                    latest_dir = max(analysis_dirs_features, key=lambda x: x.stat().st_mtime)
+                    wikiart_feature_files = list((latest_dir / 'features').glob('wikiart_vlm_features_*.csv'))
+                    if wikiart_feature_files:
+                        features_file = wikiart_feature_files[0]
+                    else:
+                        features_file = latest_dir / 'features' / self.data_config['features_file']
+                else:
+                    features_file = base_dir / 'features' / self.data_config['features_file']
+            else:
+                if analysis_dirs_features:
+                    latest_dir = max(analysis_dirs_features, key=lambda x: x.stat().st_mtime)
+                    features_file = latest_dir / 'features' / self.data_config['features_file']
+                else:
+                    features_file = base_dir / 'features' / self.data_config['features_file']
+        
         if not features_file.with_suffix('.csv').exists():
             raise FileNotFoundError(f"特徴量ファイルが見つかりません: {features_file}")
         
@@ -105,8 +187,14 @@ class SHAPExplainer:
         
         # 特徴量を抽出
         X = df[self.feature_columns].values
+        if self.scaler is not None:
+            X = self.scaler.transform(X)
+            self.logger.info("保存されたスケーラーで特徴量を標準化済みデータに変換しました")
+        else:
+            self.logger.warning("スケーラーファイルが見つからなかったため、未スケーリングの特徴量を使用します")
         
-        self.logger.info(f"モデルとデータ読み込み完了:")
+        task_name = 'Authentic vs Fake' if self.task_type == 'authenticity' else 'Impressionist vs Non-Impressionist'
+        self.logger.info(f"モデルとデータ読み込み完了 ({task_name}):")
         self.logger.info(f"  - サンプル数: {len(df)}")
         self.logger.info(f"  - 特徴量数: {len(self.feature_columns)}")
         
@@ -142,17 +230,22 @@ class SHAPExplainer:
         
         # 二値分類の場合の処理
         if isinstance(shap_values, list):
-            # リストの場合は正のクラス（印象派）のSHAP値を使用
+            # リストの場合は正のクラス（印象派またはフェイク）のSHAP値を使用
             self.logger.info(f"リスト形式のSHAP値: {len(shap_values)}個のクラス")
-            shap_values = shap_values[1]  # 正のクラス（印象派）
+            positive_class_idx = 1  # 印象派 or フェイク
+            shap_values = shap_values[positive_class_idx]
+            class_name = 'Fake' if self.task_type == 'authenticity' else 'Impressionist'
+            self.logger.info(f"正のクラス ({class_name}) のSHAP値を使用")
         elif len(shap_values.shape) == 3:
             # 3次元配列の場合は正のクラスのSHAP値を使用
             self.logger.info(f"3次元配列のSHAP値: {shap_values.shape}")
-            shap_values = shap_values[:, :, 1]  # 正のクラス（印象派）の列
+            positive_class_idx = 1  # 印象派 or フェイク
+            shap_values = shap_values[:, :, positive_class_idx]
         elif len(shap_values.shape) == 2 and shap_values.shape[1] == 2:
-            # 2次元配列で2列の場合は正のクラス（印象派）のSHAP値を使用
+            # 2次元配列で2列の場合は正のクラスのSHAP値を使用
             self.logger.info(f"2次元配列のSHAP値: {shap_values.shape}")
-            shap_values = shap_values[:, 1]  # 正のクラス（印象派）の列
+            positive_class_idx = 1  # 印象派 or フェイク
+            shap_values = shap_values[:, positive_class_idx]
         
         self.logger.info(f"SHAP値計算完了 (サンプル数: {max_samples}, 形状: {shap_values.shape})")
         
@@ -190,7 +283,8 @@ class SHAPExplainer:
                          feature_names=self.feature_columns,
                          show=False, max_display=20)
         
-        plt.title('SHAP Summary Plot - 特徴量の寄与度', fontsize=16)
+        task_title = 'Authentic vs Fake Classification' if self.task_type == 'authenticity' else 'Impressionist vs Non-Impressionist Classification'
+        plt.title(f'SHAP Summary Plot - {task_title}\nFeature Contributions', fontsize=16)
         plt.tight_layout()
         
         # 保存
@@ -289,8 +383,8 @@ class SHAPExplainer:
         plt.figure(figsize=(12, 8))
         bars = plt.barh(range(top_n), mean_shap_values[sorted_indices[:top_n]])
         plt.yticks(range(top_n), [self.feature_columns[i] for i in sorted_indices[:top_n]])
-        plt.xlabel('平均絶対SHAP値')
-        plt.title('SHAP特徴量重要度 (平均絶対値)', fontsize=16)
+        plt.xlabel('Mean Absolute SHAP Value')
+        plt.title('SHAP Feature Importance (Mean Absolute Value)', fontsize=16)
         plt.gca().invert_yaxis()
         
         # バーの色をグラデーションに
@@ -381,7 +475,7 @@ class SHAPExplainer:
         
         # 予測確率を取得
         prediction = self.model.predict_proba(X.reshape(1, -1))
-        prob_impressionist = prediction[0][1]
+        positive_class_prob = prediction[0][1]  # 印象派 or フェイクの確率
         
         # 特徴量の寄与度を計算
         feature_contributions = []
@@ -395,9 +489,15 @@ class SHAPExplainer:
         # 重要度でソート
         feature_contributions.sort(key=lambda x: x['abs_shap_value'], reverse=True)
         
+        # 予測クラス名を決定
+        if self.task_type == 'authenticity':
+            predicted_class = 'Fake' if positive_class_prob > 0.5 else 'Authentic'
+        else:
+            predicted_class = 'Impressionist' if positive_class_prob > 0.5 else 'Non-Impressionist'
+        
         return {
-            'prediction_probability': prob_impressionist,
-            'predicted_class': 'Impressionist' if prob_impressionist > 0.5 else 'Non-Impressionist',
-            'base_value': self.explainer.expected_value[1],
+            'prediction_probability': positive_class_prob,
+            'predicted_class': predicted_class,
+            'base_value': self.explainer.expected_value[1] if isinstance(self.explainer.expected_value, (list, np.ndarray)) else self.explainer.expected_value,
             'feature_contributions': feature_contributions[:10]  # 上位10個
         }

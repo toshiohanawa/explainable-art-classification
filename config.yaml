@@ -45,6 +45,27 @@ features:
     - "brightness_distribution"
     - "color_concentration"
     - "edge_density"
+  
+  texture:
+    - "glcm_contrast"
+    - "glcm_dissimilarity"
+    - "glcm_homogeneity"
+    - "glcm_energy"
+    - "glcm_correlation"
+    - "lbp_mean"
+    - "lbp_std"
+    - "lbp_histogram"
+  
+  edge:
+    - "edge_density"
+    - "edge_mean_length"
+    - "edge_std_length"
+    - "edge_count"
+    - "edge_orientation_mean"
+    - "edge_orientation_std"
+    - "edge_smoothness"
+    - "edge_curvature_mean"
+    - "edge_curvature_std"
 
 # 分類設定
 classification:
@@ -108,7 +129,7 @@ painting_filters:
 
 # WikiArt_VLMデータセット設定
 wikiart_vlm:
-  base_path: "data/WikiArt_VLM-main/WikiArt_VLM-main"
+  base_path: "data/WikiArt_VLM-main"
   generation_models:
     - "Stable-Diffusion"
     - "FLUX"
@@ -116,6 +137,23 @@ wikiart_vlm:
   train_ratio: 0.7
   val_ratio: 0.15
   test_ratio: 0.15
+
+# ゲシュタルト原則スコアリング設定
+gestalt_scoring:
+  model_name: "llava:7b"  # Ollamaモデル名 (llava:latest/llava:7b, llava:13b, llava:34b)
+  ollama_base_url: "http://localhost:11434"  # OllamaサーバーのURL
+  score_scale: [1, 5]  # スコアリングスケール（最小値、最大値）
+  max_retries: 3  # API呼び出しの最大リトライ回数
+  retry_delay: 1.0  # リトライ間隔（秒）
+  batch_size: 10  # チェックポイント保存間隔
+
+# WikiArt_VLMフィルタリング設定
+wikiart_filters:
+  enabled: true  # フィルタリングを有効にするか（デフォルト: Impressionismに絞る）
+  wikiart_data_path: "data/WikiArt/wikiart_data.csv"  # Hugging Faceデータセットのパス
+  style: ["Impressionism"]  # デフォルト: Impressionismに絞る（例: ["Impressionism", "Post_Impressionism"]）
+  artist: []  # 追加でartist名でフィルタリング（オプション）
+  include_unknown: false  # "Unknown Artist"を含めるか
 
 # ログ設定
 logging:

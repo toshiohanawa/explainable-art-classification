@@ -6,18 +6,20 @@
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class TimestampManager:
     """タイムスタンプ管理クラス"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], timestamp: Optional[str] = None):
         """
         初期化
         
         Args:
             config: 設定辞書
+            timestamp: 指定されたタイムスタンプ（Noneの場合は現在時刻を使用）
+                      段階的実行で同じタイムスタンプを使用する場合に指定
         """
         self.config = config
         self.data_config = config['data']
@@ -28,10 +30,15 @@ class TimestampManager:
         
         # タイムスタンプ付きディレクトリ（分単位）
         if self.use_timestamp:
-            self.timestamp = datetime.now().strftime("%y%m%d%H%M")
+            # タイムスタンプが指定されている場合はそれを使用（段階的実行対応）
+            if timestamp:
+                self.timestamp = timestamp
+            else:
+                self.timestamp = datetime.now().strftime("%y%m%d%H%M")
             self.output_dir = self.base_output_dir / f"analysis_{self.timestamp}"
         else:
             self.output_dir = self.base_output_dir
+            self.timestamp = "default"
     
     def get_output_dir(self) -> Path:
         """出力ディレクトリを取得"""
