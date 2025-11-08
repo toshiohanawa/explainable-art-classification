@@ -55,7 +55,8 @@ explainable-art-classification/
 │       ├── dataset_from_images.csv         # 画像から作成したデータセット
 │       └── paintings_images/              # ダウンロード済み画像
 ├── notebooks/             # Jupyterノートブック
-│   └── eda_paintings_complete_dataset.ipynb # EDAノートブック
+│   ├── eda_paintings_complete_dataset.ipynb # EDAノートブック
+│   └── prepare_data_for_shap_class.ipynb # shap-class用データ準備ノートブック
 ├── docs/                  # ドキュメントとレポート
 │   ├── cursor_chat_history.md              # 開発履歴
 │   ├── implementation_status_report.md      # 実装状況レポート
@@ -207,15 +208,57 @@ jupyter lab notebooks/
   - 画像データの分析
   - 各種可視化と統計分析
 
+- **`notebooks/prepare_data_for_shap_class.ipynb`**: shap-class用データ準備
+  - WikiArt_VLMデータセットの読み込み
+  - 特徴量カラムの抽出（label以外の数値カラム、説明文カラムを除外）
+  - train/validation分割（70/30、stratifyを使用してラベル分布を同数に保持）
+  - CSVファイルとして保存（`shap_class_rf/dataset/train_num.csv`, `validation_num.csv`）
+  - shap-classリポジトリのセットアップとモデル訓練
+  - Random Forestモデルの訓練と評価
+  - SHAP説明可能性の可視化
+
 #### ノートブックの実行環境
 
 ```bash
 # Jupyterカーネルの確認
 jupyter kernelspec list
 
-# プロジェクトの仮想環境を使用する場合
-python -m ipykernel install --user --name explainable-art --display-name "Python (explainable-art)"
+# プロジェクトの仮想環境を使用するカーネルのセットアップ
+# カーネル名: explainable-art-classification
+source .venv/bin/activate  # 仮想環境を有効化
+pip install ipykernel jupyter
+python -m ipykernel install --user --name explainable-art-classification --display-name "Python (explainable-art-classification)"
 ```
+
+#### shap-class用データ準備ノートブックの使用方法
+
+1. **Notebookを開く**:
+   ```bash
+   jupyter notebook notebooks/prepare_data_for_shap_class.ipynb
+   ```
+
+2. **カーネルの選択**:
+   - Notebookを開いたら、右上のカーネル名をクリック
+   - `Python (explainable-art-classification)`を選択
+
+3. **セルの実行**:
+   - 各セルを順番に実行（Shift+Enter）
+   - または「Run All」で全セルを実行
+
+4. **処理内容**:
+   - セル1-13: データ準備（読み込み、特徴量抽出、分割、保存）
+   - セル14-26: shap-classリポジトリのセットアップとモデル訓練
+     - shap-classリポジトリのクローン
+     - 必要なパッケージのインストール
+     - データファイルのコピー
+     - データファイルの検証
+     - Random Forestモデルの訓練と評価
+     - 混同行列の可視化
+
+5. **出力ファイル**:
+   - `shap_class_rf/dataset/train_num.csv` (70%)
+   - `shap_class_rf/dataset/validation_num.csv` (30%)
+   - `shap-class/results/classification/` (モデル訓練結果)
 
 ## 実行フロー
 
@@ -301,14 +344,12 @@ logs/                            # ログファイル
 - 分類設定（テストサイズ、交差検証）
 - SHAP設定（サンプル数、背景データ）
 
-### タイムスタンプ機能
+### タイムスタンプ / 最新ディレクトリ機能
 
-`data.use_timestamp`を`true`に設定すると、各分析実行時に`data/analysis_YYMMDDHHMM/`形式のタイムスタンプ付きディレクトリ（分単位）が作成され、分析結果が時系列で管理されます。
+- `data.use_timestamp: false`（デフォルト）では、各ステージの成果物が `data/<stage>/latest/` に常に上書きされます。Git からは `latest` 以下だけを追跡すれば「常に最新」を共有できます。
+- `data.use_timestamp: true` を指定すると、従来通り `data/analysis_YYMMDDHHMM/` に成果物を時系列保存します。履歴を残したい検証時向けです。
 
-- `true`: 分析結果をタイムスタンプ付きディレクトリに保存（推奨）
-- `false`: 固定ディレクトリを使用（従来の動作）
-
-**注意**: 生データ（APIから取得した画像とメタデータ）は常に固定ディレクトリ（`data/raw_data/`, `data/raw_images/`）に保存され、分析結果のみがタイムスタンプ付きディレクトリに保存されます。
+生データ（`data/raw_data/`, `data/raw_images/`）はどちらの設定でも固定ディレクトリに保存されます。最新版を凍結したい場合は `TimestampManager.snapshot_stage('<stage>')` を呼び出し、`snapshot_<timestamp>` ディレクトリを作成できます。
 
 ## 教育的活用
 
@@ -330,11 +371,13 @@ logs/                            # ログファイル
 
 ## プロジェクトの最新状況
 
-### 実装状況（2025年11月2日更新）
+### 実装状況（2025年11月7日更新）
 
-- **全体完了度**: 約95%
+- **全体完了度**: 約98%
 - **データ収集システム**: 完全実装済み
 - **EDA環境**: Jupyter Notebook環境構築済み
+- **shap-class統合**: データ準備ノートブック実装済み
+- **Jupyterカーネル**: `explainable-art-classification`カーネルセットアップ済み
 - **コード整理**: リファクタリング完了
 - **ファイル整理**: ディレクトリ構造の最適化完了
 
@@ -351,6 +394,17 @@ logs/                            # ログファイル
   - JSONデータ（タグ、constituents、測定値）の解析
   - 各種可視化と統計分析
   - 共通ユーティリティ関数でコード再利用性向上
+
+#### shap-class統合
+- **データ準備ノートブック**: `notebooks/prepare_data_for_shap_class.ipynb`を作成
+  - WikiArt_VLMデータセットの読み込みと前処理
+  - train/validation分割（70/30、stratifyを使用）
+  - shap-classリポジトリのセットアップとモデル訓練
+  - Random Forestモデルの訓練と評価
+  - SHAP説明可能性の可視化
+- **Jupyterカーネル**: `explainable-art-classification`カーネルをセットアップ
+  - プロジェクトの仮想環境（`.venv`）を使用
+  - Python 3.12.11環境
 
 #### コードとファイルの整理
 - **スクリプトの整理**: 全ての実行スクリプトを`scripts/`ディレクトリに統一
@@ -370,6 +424,11 @@ logs/                            # ログファイル
   - 共通ユーティリティ関数によるコード再利用
   - JSONデータの自動解析
   - 各種可視化と統計分析
+- **shap-class統合**: データ準備ノートブックとJupyterカーネルセットアップ
+  - WikiArt_VLMデータセットの前処理
+  - train/validation分割とデータ保存
+  - shap-classリポジトリとの統合
+  - Random Forestモデルの訓練と評価
 - **色彩特徴量抽出**: 完全実装
 - **ランダムフォレスト分類器**: 実装済み
 - **SHAP説明可能性**: summary_plot実装済み
@@ -476,6 +535,14 @@ Jupyter Notebookが起動しない場合は、カーネルが正しく設定さ�
 # カーネルの一覧確認
 jupyter kernelspec list
 
-# カーネルの再インストール
-python -m ipykernel install --user --name explainable-art --display-name "Python (explainable-art)"
+# カーネルの再インストール（explainable-art-classification）
+source .venv/bin/activate  # 仮想環境を有効化
+pip install ipykernel jupyter
+python -m ipykernel install --user --name explainable-art-classification --display-name "Python (explainable-art-classification)"
 ```
+
+### shap-class用データ準備ノートブックの問題
+
+- **ファイルが見つからないエラー**: Notebookの最初のセル（セル1）を実行して、プロジェクトルートが正しく設定されているか確認してください。
+- **GitHub TOKENエラー**: セル16でGitHub TOKENが必要です。環境変数`GITHUB_TOKEN`を設定するか、コード内のTOKENを更新してください。
+- **shap-classリポジトリのクローンエラー**: 既に`shap-class`ディレクトリが存在する場合は、クローンをスキップします。必要に応じて既存のディレクトリを削除してください。

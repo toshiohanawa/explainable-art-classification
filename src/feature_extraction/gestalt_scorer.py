@@ -52,7 +52,8 @@ class GestaltScorer:
     
     def __init__(self, config: Dict[str, Any], model_name: str = 'llava:7b', 
                  ollama_base_url: str = 'http://localhost:11434',
-                 timestamp_manager: Optional[TimestampManager] = None):
+                 timestamp_manager: Optional[TimestampManager] = None,
+                 force_run: bool = False):
         """
         初期化
         
@@ -73,7 +74,7 @@ class GestaltScorer:
         self.chat_url = f"{ollama_base_url}/api/chat"
         
         self.logger = logging.getLogger(__name__)
-        
+
         # タイムスタンプ管理（共有または新規作成）
         if timestamp_manager is not None:
             self.timestamp_manager = timestamp_manager
@@ -81,14 +82,18 @@ class GestaltScorer:
             self.timestamp_manager = TimestampManager(config)
         self.output_dir = self.timestamp_manager.get_output_dir()
         self.features_dir = self.timestamp_manager.get_features_dir()
-        
+        self.gestalt_dir = self.timestamp_manager.get_gestalt_dir()
+        self.data_root = Path(self.data_config.get('output_dir', 'data'))
+
         # ディレクトリ作成
         self.timestamp_manager.create_directories()
-        
+
         # スコアリング設定
         self.score_scale = self.gestalt_config.get('score_scale', (1, 5))  # 1-5スケール
         self.max_retries = self.gestalt_config.get('max_retries', 3)
         self.retry_delay = self.gestalt_config.get('retry_delay', 1.0)  # 秒
+        self.reuse_existing = self.gestalt_config.get('reuse_existing_results', True)
+        self.force_run = force_run or self.gestalt_config.get('force_run', False)
         
         # プロンプトテンプレート
         self.prompt_template = self._create_prompt_template()
@@ -393,7 +398,9 @@ Now evaluate the following image:"""
     def _save_checkpoint(self, results: List[Dict], current_count: int) -> None:
         """チェックポイントを保存"""
         df = pd.DataFrame(results)
-        checkpoint_file = self.features_dir / f'gestalt_scores_checkpoint_{current_count}.csv'
+        checkpoint_dir = self.gestalt_dir / 'checkpoints'
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        checkpoint_file = checkpoint_dir / f'gestalt_scores_checkpoint_{current_count}.csv'
         df.to_csv(checkpoint_file, index=False)
         self.logger.info(f"チェックポイント保存: {checkpoint_file}")
     
@@ -408,7 +415,10 @@ Now evaluate the following image:"""
         Returns:
             既存ファイルのPath（存在する場合）、None（存在しない場合）
         """
-        output_file = self.features_dir / f'gestalt_scores_{generation_model}.csv'
+        if self.force_run or not self.reuse_existing:
+            return None
+
+        output_file = self.gestalt_dir / f'gestalt_scores_{generation_model}.csv'
         
         if output_file.exists():
             try:
@@ -441,50 +451,35 @@ Now evaluate the following image:"""
             except Exception as e:
                 self.logger.warning(f"既存ファイルの読み込みエラー: {e}")
         
-        # 他のanalysis_ディレクトリから既存ファイルを検索
-        # features_dirの構造: data/analysis_YYYYMMDDHHMM/features
-        # なので、data_dirは features_dir.parent.parent になる
-        data_dir = self.features_dir.parent.parent
-        if data_dir.exists() and data_dir.name == "data":
-            # dataディレクトリが存在し、名前が"data"の場合
-            pass
-        else:
-            # dataディレクトリが見つからない場合、親ディレクトリを確認
-            data_dir = self.features_dir.parent.parent.parent / "data"
-        
-        if data_dir.exists():
-            for analysis_dir in sorted(data_dir.glob("analysis_*"), reverse=True):
-                if analysis_dir == self.features_dir.parent:
-                    continue  # 現在のディレクトリはスキップ
+        legacy_dirs = sorted(self.data_root.glob("analysis_*"), reverse=True)
+        for analysis_dir in legacy_dirs:
+            candidate_file = analysis_dir / "features" / f'gestalt_scores_{generation_model}.csv'
+            if not candidate_file.exists():
+                continue
+            try:
+                df = pd.read_csv(candidate_file)
+                expected_rows = expected_pairs * 2
+                actual_rows = len(df)
                 
-                candidate_file = analysis_dir / "features" / f'gestalt_scores_{generation_model}.csv'
-                if candidate_file.exists():
-                    try:
-                        df = pd.read_csv(candidate_file)
-                        expected_rows = expected_pairs * 2
-                        actual_rows = len(df)
-                        
-                        if 'image_path' in df.columns:
-                            original_count = df[df['image_path'].str.contains('Original')].shape[0]
-                            generated_count = df[df['image_path'].str.contains(generation_model) | 
-                                                df['image_path'].str.contains('Stable-Diffusion') | 
-                                                df['image_path'].str.contains('FLUX') | 
-                                                df['image_path'].str.contains('F-Lite')].shape[0]
-                            
-                            if abs(actual_rows - expected_rows) <= 10 and original_count == generated_count:
-                                self.logger.info(f"既存のゲシュタルトスコアファイルが見つかりました: {candidate_file}")
-                                self.logger.info(f"  行数: {actual_rows:,} (期待: {expected_rows:,})")
-                                self.logger.info(f"  Original: {original_count:,}, Generated: {generated_count:,}")
-                                
-                                # 現在のディレクトリにコピー
-                                import shutil
-                                shutil.copy2(candidate_file, output_file)
-                                self.logger.info(f"  ファイルをコピーしました: {output_file}")
-                                return output_file
-                    except Exception as e:
-                        self.logger.warning(f"候補ファイルの読み込みエラー ({candidate_file}): {e}")
-                        continue
-        
+                if 'image_path' in df.columns:
+                    original_count = df[df['image_path'].str.contains('Original')].shape[0]
+                    generated_count = df[df['image_path'].str.contains(generation_model) | 
+                                        df['image_path'].str.contains('Stable-Diffusion') | 
+                                        df['image_path'].str.contains('FLUX') | 
+                                        df['image_path'].str.contains('F-Lite')].shape[0]
+                    
+                    if abs(actual_rows - expected_rows) <= 10 and original_count == generated_count:
+                        self.logger.info(f"既存のゲシュタルトスコアファイルが見つかりました: {candidate_file}")
+                        self.logger.info(f"  行数: {actual_rows:,} (期待: {expected_rows:,})")
+                        self.logger.info(f"  Original: {original_count:,}, Generated: {generated_count:,}")
+                        import shutil
+                        output_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(candidate_file, output_file)
+                        self.logger.info(f"  最新ディレクトリにコピーしました: {output_file}")
+                        return output_file
+            except Exception as e:
+                self.logger.warning(f"候補ファイルの読み込みエラー ({candidate_file}): {e}")
+                continue
         return None
     
     def score_wikiart_vlm_images(self, generation_model: str = 'Stable-Diffusion',
@@ -535,11 +530,10 @@ Now evaluate the following image:"""
         scores_df = self.score_images_batch(image_paths)
         
         # 結果を保存
-        output_file = self.features_dir / f'gestalt_scores_{generation_model}.csv'
+        output_file = self.gestalt_dir / f'gestalt_scores_{generation_model}.csv'
         scores_df.to_csv(output_file, index=False)
         
         self.logger.info(f"ゲシュタルト原則スコアを保存: {output_file}")
         
         # ファイルパスも返す（統合時の参照用）
         return scores_df, str(output_file)
-

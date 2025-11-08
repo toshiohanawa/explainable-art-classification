@@ -64,6 +64,11 @@ def main():
         default='config.yaml',
         help='設定ファイルのパス'
     )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='既存のゲシュタルトスコアがあっても再スコアリングを強制する'
+    )
     
     args = parser.parse_args()
     
@@ -85,7 +90,7 @@ def main():
     
     try:
         # GestaltScorerを初期化
-        scorer = GestaltScorer(config, model_name=model_name)
+        scorer = GestaltScorer(config, model_name=model_name, force_run=args.force)
         
         if args.mode == 'single':
             # 単一画像のスコアリング
@@ -128,7 +133,7 @@ def main():
             scores_df = scorer.score_images_batch(image_paths)
             
             # 結果を保存
-            output_file = scorer.features_dir / 'gestalt_scores_batch.csv'
+            output_file = scorer.gestalt_dir / 'gestalt_scores_batch.csv'
             scores_df.to_csv(output_file, index=False)
             
             logger.info(f"\nスコアリング結果を保存: {output_file}")
@@ -141,12 +146,12 @@ def main():
                 logger.info(f"最大サンプル数: {args.max_samples}")
             
             # WikiArt_VLMデータセットのスコアリング
-            scores_df = scorer.score_wikiart_vlm_images(
+            scores_df, output_path = scorer.score_wikiart_vlm_images(
                 generation_model=args.generation_model,
                 max_samples=args.max_samples
             )
             
-            logger.info(f"\nスコアリング結果: {len(scores_df)}件")
+            logger.info(f"\nスコアリング結果: {len(scores_df)}件 (保存先: {output_path})")
         
         logger.info("\n" + "=" * 60)
         logger.info("すべての処理が完了しました")
@@ -159,4 +164,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

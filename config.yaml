@@ -20,7 +20,9 @@ data:
   paintings_features_file: "paintings_features.pkl"
   min_samples_per_class: 250
   max_samples_per_class: 1000
-  use_timestamp: true  # 分析結果をタイムスタンプ付きフォルダ（yymmddhhmm）に保存（falseにすると固定ディレクトリを使用）
+  use_timestamp: false  # trueの場合のみanalysis_yyyymmddHHMM配下へ保存
+  latest_label: "latest"  # use_timestamp=false時に使用する最新版ディレクトリ名
+  snapshot_prefix: "snapshot"  # 最新版からスナップショットを切る際のプレフィックス
 
 # 画像処理設定
 image_processing:
@@ -146,6 +148,8 @@ gestalt_scoring:
   max_retries: 3  # API呼び出しの最大リトライ回数
   retry_delay: 1.0  # リトライ間隔（秒）
   batch_size: 10  # チェックポイント保存間隔
+  reuse_existing_results: true  # 既存スコアがあれば再利用
+  force_run: false  # 強制的に再スコアリングする場合のみtrue
 
 # WikiArt_VLMフィルタリング設定
 wikiart_filters:

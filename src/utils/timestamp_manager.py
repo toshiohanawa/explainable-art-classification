@@ -1,121 +1,120 @@
 """
-タイムスタンプ管理ユーティリティ
-分析結果を時系列で管理するためのタイムスタンプ付きディレクトリを作成
+成果物ディレクトリ管理ユーティリティ
+ステージごとに最新版ディレクトリを更新しつつ、必要に応じてスナップショットを作成
 """
 
-import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 
 class TimestampManager:
-    """タイムスタンプ管理クラス"""
-    
+    """成果物ディレクトリ/タイムスタンプ管理クラス"""
+
+    STAGE_NAMES = [
+        'features',
+        'models',
+        'results',
+        'visualizations',
+        'shap_explanations',
+        'gestalt'
+    ]
+
     def __init__(self, config: Dict[str, Any], timestamp: Optional[str] = None):
-        """
-        初期化
-        
-        Args:
-            config: 設定辞書
-            timestamp: 指定されたタイムスタンプ（Noneの場合は現在時刻を使用）
-                      段階的実行で同じタイムスタンプを使用する場合に指定
-        """
+        """初期化"""
         self.config = config
         self.data_config = config['data']
         self.use_timestamp = self.data_config.get('use_timestamp', False)
-        
-        # ベース出力ディレクトリ
+        self.latest_label = self.data_config.get('latest_label', 'latest')
+        self.snapshot_prefix = self.data_config.get('snapshot_prefix', 'snapshot')
+
         self.base_output_dir = Path(self.data_config['output_dir'])
-        
-        # タイムスタンプ付きディレクトリ（分単位）
+
         if self.use_timestamp:
-            # タイムスタンプが指定されている場合はそれを使用（段階的実行対応）
-            if timestamp:
-                self.timestamp = timestamp
-            else:
-                self.timestamp = datetime.now().strftime("%y%m%d%H%M")
+            self.timestamp = timestamp or datetime.now().strftime("%y%m%d%H%M")
             self.output_dir = self.base_output_dir / f"analysis_{self.timestamp}"
         else:
+            self.timestamp = self.latest_label
             self.output_dir = self.base_output_dir
-            self.timestamp = "default"
-    
+
+    def _stage_dir(self, stage_name: str) -> Path:
+        if self.use_timestamp:
+            return self.output_dir / stage_name
+        return self.base_output_dir / stage_name / self.latest_label
+
     def get_output_dir(self) -> Path:
         """出力ディレクトリを取得"""
-        return self.output_dir
-    
+        return self.output_dir if self.use_timestamp else self.base_output_dir
+
     def get_images_dir(self) -> Path:
-        """画像ディレクトリを取得（生データは固定ディレクトリ）"""
         return self.base_output_dir / self.data_config['images_dir']
-    
+
     def get_raw_data_dir(self) -> Path:
-        """生データディレクトリを取得（生データは固定ディレクトリ）"""
         return self.base_output_dir / 'raw_data'
-    
+
     def get_features_dir(self) -> Path:
-        """特徴量ディレクトリを取得"""
-        return self.output_dir / 'features'
-    
+        return self._stage_dir('features')
+
     def get_models_dir(self) -> Path:
-        """モデルディレクトリを取得"""
-        return self.output_dir / 'models'
-    
+        return self._stage_dir('models')
+
     def get_results_dir(self) -> Path:
-        """結果ディレクトリを取得"""
-        return self.output_dir / 'results'
-    
+        return self._stage_dir('results')
+
     def get_visualizations_dir(self) -> Path:
-        """可視化ディレクトリを取得"""
-        return self.output_dir / 'visualizations'
-    
+        return self._stage_dir('visualizations')
+
     def get_shap_explanations_dir(self) -> Path:
-        """SHAP説明ディレクトリを取得"""
-        return self.output_dir / 'shap_explanations'
-    
+        return self._stage_dir('shap_explanations')
+
+    def get_gestalt_dir(self) -> Path:
+        return self._stage_dir('gestalt')
+
     def create_directories(self) -> None:
-        """必要なディレクトリを作成"""
-        # 分析結果用のディレクトリのみ作成
-        analysis_directories = [
-            self.output_dir,
-            self.get_features_dir(),
-            self.get_models_dir(),
-            self.get_results_dir(),
-            self.get_visualizations_dir(),
-            self.get_shap_explanations_dir()
-        ]
-        
-        for directory in analysis_directories:
+        stage_dirs = [self._stage_dir(stage) for stage in self.STAGE_NAMES]
+
+        if self.use_timestamp:
+            stage_dirs.append(self.output_dir)
+
+        for directory in stage_dirs:
             directory.mkdir(parents=True, exist_ok=True)
-        
-        # 生データ用のディレクトリも作成（固定ディレクトリ）
-        raw_directories = [
-            self.get_images_dir(),
-            self.get_raw_data_dir()
-        ]
-        
+
+        raw_directories = [self.get_images_dir(), self.get_raw_data_dir()]
         for directory in raw_directories:
             directory.mkdir(parents=True, exist_ok=True)
-    
+
+    def snapshot_stage(self, stage_name: str, timestamp: Optional[str] = None) -> Path:
+        """最新版をスナップショットとして保存"""
+        if stage_name not in self.STAGE_NAMES:
+            raise ValueError(f"未知のステージです: {stage_name}")
+
+        src = self._stage_dir(stage_name)
+        if not src.exists():
+            raise FileNotFoundError(f"スナップショット対象ディレクトリが見つかりません: {src}")
+
+        snapshot_ts = timestamp or datetime.now().strftime("%y%m%d%H%M")
+        dest = self.base_output_dir / stage_name / f"{self.snapshot_prefix}_{snapshot_ts}"
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+        return dest
+
     def get_metadata_file(self) -> Path:
-        """メタデータファイルパスを取得"""
         return self.get_raw_data_dir() / self.data_config['metadata_file']
-    
+
     def get_features_file(self) -> Path:
-        """特徴量ファイルパスを取得"""
         return self.get_features_dir() / self.data_config['features_file']
-    
+
     def get_model_file(self) -> Path:
-        """モデルファイルパスを取得"""
         return self.get_models_dir() / 'random_forest_model.pkl'
-    
+
     def get_scaler_file(self) -> Path:
-        """スケーラーファイルパスを取得"""
         return self.get_models_dir() / 'scaler.pkl'
-    
+
     def get_results_file(self) -> Path:
-        """結果ファイルパスを取得"""
         return self.get_results_dir() / 'training_results.txt'
-    
+
+    def get_gestalt_scores_file(self) -> Path:
+        return self.get_gestalt_dir() / 'gestalt_scores.parquet'
+
     def get_timestamp(self) -> str:
-        """タイムスタンプを取得"""
-        return self.timestamp if self.use_timestamp else "default"
+        return self.timestamp

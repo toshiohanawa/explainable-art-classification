@@ -103,30 +103,20 @@ class PhaseRunner:
         from pathlib import Path
         import pandas as pd
         
-        # データディレクトリから最新のanalysis_ディレクトリを検索
-        data_dir = self.project_root / "data"
+        data_dir = self.project_root / "data" / "gestalt" / "latest"
         if not data_dir.exists():
             return False
-        
-        # 最新のanalysis_ディレクトリを検索
-        analysis_dirs = sorted(data_dir.glob("analysis_*"), reverse=True)
-        
-        for analysis_dir in analysis_dirs:
-            features_dir = analysis_dir / "features"
-            gestalt_file = features_dir / f'gestalt_scores_{self.generation_model}.csv'
-            
-            if gestalt_file.exists():
-                try:
-                    df = pd.read_csv(gestalt_file)
-                    # 最低限の行数チェック（17,000行以上）
-                    if len(df) >= 17000:
-                        self.logger.info(f"Phase 4の既存結果が見つかりました: {gestalt_file}")
-                        self.logger.info(f"  行数: {len(df):,}")
-                        return True
-                except Exception as e:
-                    self.logger.warning(f"既存ファイルの読み込みエラー: {e}")
-                    continue
-        
+        gestalt_file = data_dir / f'gestalt_scores_{self.generation_model}.csv'
+        if gestalt_file.exists():
+            try:
+                df = pd.read_csv(gestalt_file)
+                if len(df) >= 17000:
+                    self.logger.info(f"Phase 4の既存結果が見つかりました: {gestalt_file}")
+                    self.logger.info(f"  行数: {len(df):,}")
+                    return True
+            except Exception as e:
+                self.logger.warning(f"既存ファイルの読み込みエラー: {e}")
+                return False
         return False
     
     def run_phase4(self):
@@ -304,4 +294,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

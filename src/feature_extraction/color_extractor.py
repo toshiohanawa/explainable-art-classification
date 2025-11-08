@@ -48,6 +48,7 @@ class ColorFeatureExtractor:
             self.timestamp_manager = TimestampManager(config)
         self.output_dir = self.timestamp_manager.get_output_dir()
         self.features_dir = self.timestamp_manager.get_features_dir()
+        self.gestalt_dir = self.timestamp_manager.get_gestalt_dir()
         
         # ディレクトリ作成
         self.timestamp_manager.create_directories()
@@ -119,22 +120,24 @@ class ColorFeatureExtractor:
         features['saturation_std'] = np.std(s)
         features['value_std'] = np.std(v)
         
-        # コントラスト（標準偏差）
-        features['contrast'] = np.std(v)
-        
         # 色の多様性（色相の分散）
         features['color_diversity'] = np.var(h)
         
-        # 支配色の分析
+        # 支配色の分析（HSV統計量を使用）
         features.update(self._extract_dominant_colors(image))
         
-        # 明度分布
+        # 明度分布（重複を避けるため、brightness_meanとbrightness_stdは使用しない）
         features.update(self._extract_brightness_distribution(v))
         
         return features
     
     def _extract_dominant_colors(self, image: np.ndarray) -> Dict[str, float]:
-        """支配色の特徴量を抽出"""
+        """
+        支配色の特徴量を抽出（HSV統計量を使用）
+        
+        解釈性を重視し、5つの支配色のRGB値を個別に使用せず、
+        HSV色空間での統計量（平均色相、平均彩度、平均明度、標準偏差）を使用します。
+        """
         features = {}
         
         # 画像を1次元に変換
@@ -147,47 +150,77 @@ class ColorFeatureExtractor:
             kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
             kmeans.fit(pixels)
             
-            # 各クラスタの中心色
-            colors = kmeans.cluster_centers_
+            # 各クラスタの中心色（RGB）
+            colors_rgb = kmeans.cluster_centers_
             
             # 各クラスタのサイズ（支配度）
             labels = kmeans.labels_
             cluster_sizes = np.bincount(labels)
             
-            # 支配色の特徴量
-            for i in range(5):
-                if i < len(colors):
-                    features[f'dominant_color_{i+1}_r'] = colors[i][0]
-                    features[f'dominant_color_{i+1}_g'] = colors[i][1]
-                    features[f'dominant_color_{i+1}_b'] = colors[i][2]
-                    features[f'dominant_color_{i+1}_ratio'] = cluster_sizes[i] / len(pixels)
-                else:
-                    features[f'dominant_color_{i+1}_r'] = 0.0
-                    features[f'dominant_color_{i+1}_g'] = 0.0
-                    features[f'dominant_color_{i+1}_b'] = 0.0
-                    features[f'dominant_color_{i+1}_ratio'] = 0.0
+            # RGB値をHSVに変換
+            colors_hsv = []
+            for rgb in colors_rgb:
+                # RGB値を0-255の範囲に制限
+                rgb_uint8 = np.clip(rgb, 0, 255).astype(np.uint8)
+                # 1画素のRGB配列を作成
+                rgb_array = np.uint8([[rgb_uint8]])
+                # HSVに変換
+                hsv = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2HSV)
+                colors_hsv.append(hsv[0][0])
+            
+            colors_hsv = np.array(colors_hsv)
+            
+            # HSV統計量を計算（解釈性の高い特徴量）
+            # 色相（Hue）の統計量
+            hues = colors_hsv[:, 0]
+            features['dominant_color_hue_mean'] = float(np.mean(hues))
+            features['dominant_color_hue_std'] = float(np.std(hues))
+            
+            # 彩度（Saturation）の統計量
+            saturations = colors_hsv[:, 1]
+            features['dominant_color_saturation_mean'] = float(np.mean(saturations))
+            features['dominant_color_saturation_std'] = float(np.std(saturations))
+            
+            # 明度（Value）の統計量
+            values = colors_hsv[:, 2]
+            features['dominant_color_value_mean'] = float(np.mean(values))
+            features['dominant_color_value_std'] = float(np.std(values))
+            
+            # 支配色の占有率の統計量（最大占有率と平均占有率）
+            ratios = cluster_sizes / len(pixels)
+            features['dominant_color_ratio_max'] = float(np.max(ratios))
+            features['dominant_color_ratio_mean'] = float(np.mean(ratios))
+            features['dominant_color_ratio_std'] = float(np.std(ratios))
                     
         except Exception as e:
             self.logger.warning(f"支配色抽出エラー: {e}")
-            # エラー時はデフォルト値
-            for i in range(5):
-                features[f'dominant_color_{i+1}_r'] = 0.0
-                features[f'dominant_color_{i+1}_g'] = 0.0
-                features[f'dominant_color_{i+1}_b'] = 0.0
-                features[f'dominant_color_{i+1}_ratio'] = 0.0
+            # エラー時はデフォルト値（0.0）を設定
+            features['dominant_color_hue_mean'] = 0.0
+            features['dominant_color_hue_std'] = 0.0
+            features['dominant_color_saturation_mean'] = 0.0
+            features['dominant_color_saturation_std'] = 0.0
+            features['dominant_color_value_mean'] = 0.0
+            features['dominant_color_value_std'] = 0.0
+            features['dominant_color_ratio_max'] = 0.0
+            features['dominant_color_ratio_mean'] = 0.0
+            features['dominant_color_ratio_std'] = 0.0
         
         return features
     
     def _extract_brightness_distribution(self, v_channel: np.ndarray) -> Dict[str, float]:
-        """明度分布の特徴量を抽出"""
+        """
+        明度分布の特徴量を抽出
+        
+        注意: brightness_meanとbrightness_stdはmean_valueとvalue_stdと重複するため、
+        歪度、尖度、エントロピーのみを抽出します。
+        """
         features = {}
         
         # ヒストグラムを計算
         hist, bins = np.histogram(v_channel, bins=10, range=(0, 256))
         
-        # 分布の特徴量
-        features['brightness_mean'] = np.mean(v_channel)
-        features['brightness_std'] = np.std(v_channel)
+        # 分布の特徴量（重複を避けるため、meanとstdは使用しない）
+        # mean_valueとvalue_stdが既に存在するため、brightness_meanとbrightness_stdは使用しない
         features['brightness_skewness'] = self._calculate_skewness(v_channel)
         features['brightness_kurtosis'] = self._calculate_kurtosis(v_channel)
         
@@ -264,30 +297,26 @@ class ColorFeatureExtractor:
             n_points = 8 * radius
             lbp = local_binary_pattern(gray, n_points, radius, method='uniform')
             
-            # LBPの統計量
+            # LBPの基本統計量
             lbp_mean = np.mean(lbp)
             lbp_std = np.std(lbp)
+            features['texture_lbp_mean'] = float(lbp_mean)
+            features['texture_lbp_std'] = float(lbp_std)
             
-            # LBPヒストグラム（10ビン）
+            # LBPヒストグラムの統計量（解釈性を重視してビン特徴量は使用しない）
+            # ヒストグラムを計算（統計量の計算に使用）
             hist, _ = np.histogram(lbp.ravel(), bins=10, range=(0, n_points + 2))
             hist = hist.astype(float)
             hist /= (hist.sum() + 1e-7)  # 正規化
             
-            features['texture_lbp_mean'] = float(lbp_mean)
-            features['texture_lbp_std'] = float(lbp_std)
-            
-            # ヒストグラムの各ビンを特徴量として追加
-            for i in range(10):
-                features[f'texture_lbp_histogram_{i}'] = float(hist[i])
-            
-            # LBPヒストグラムの統計量（追加提案）
+            # ヒストグラムの統計量を計算（解釈性の高い特徴量）
             hist_nonzero = hist[hist > 0]
             if len(hist_nonzero) > 0:
-                # エントロピー
+                # エントロピー: テクスチャパターンの多様性を表す
                 entropy = -np.sum(hist_nonzero * np.log2(hist_nonzero))
                 features['texture_lbp_histogram_entropy'] = float(entropy)
                 
-                # 歪度
+                # 歪度: テクスチャパターン分布の非対称性を表す
                 hist_centered = hist - np.mean(hist)
                 hist_std = np.std(hist)
                 if hist_std > 0:
@@ -296,7 +325,7 @@ class ColorFeatureExtractor:
                 else:
                     features['texture_lbp_histogram_skewness'] = 0.0
                 
-                # 尖度
+                # 尖度: テクスチャパターン分布の尖り具合を表す
                 if hist_std > 0:
                     kurtosis_val = np.mean((hist_centered / hist_std) ** 4) - 3
                     features['texture_lbp_histogram_kurtosis'] = float(kurtosis_val)
@@ -309,10 +338,9 @@ class ColorFeatureExtractor:
                 
         except Exception as e:
             self.logger.warning(f"LBP特徴量抽出エラー: {e}")
+            # エラー時はデフォルト値（0.0）を設定
             features['texture_lbp_mean'] = 0.0
             features['texture_lbp_std'] = 0.0
-            for i in range(10):
-                features[f'texture_lbp_histogram_{i}'] = 0.0
             features['texture_lbp_histogram_entropy'] = 0.0
             features['texture_lbp_histogram_skewness'] = 0.0
             features['texture_lbp_histogram_kurtosis'] = 0.0
@@ -717,23 +745,19 @@ class ColorFeatureExtractor:
         Returns:
             見つかったファイルのPath、見つからない場合はNone
         """
-        # 優先的に検索: data/analysis_2511040012/features/gestalt_scores_{generation_model}.csv
-        preferred_path = self.base_output_dir.parent / 'data' / 'analysis_2511040012' / 'features' / f'gestalt_scores_{generation_model}.csv'
-        if preferred_path.exists():
-            self.logger.info(f"既存のゲシュタルトスコアファイルが見つかりました: {preferred_path}")
-            return preferred_path
-        
-        # 他のanalysis_ディレクトリから検索
-        data_dir = self.base_output_dir.parent / 'data'
-        if data_dir.exists():
-            analysis_dirs = sorted(data_dir.glob("analysis_*"), reverse=True)
-            for analysis_dir in analysis_dirs:
-                features_dir = analysis_dir / "features"
-                candidate_file = features_dir / f'gestalt_scores_{generation_model}.csv'
-                if candidate_file.exists():
-                    self.logger.info(f"既存のゲシュタルトスコアファイルが見つかりました: {candidate_file}")
-                    return candidate_file
-        
+        latest_file = self.gestalt_dir / f'gestalt_scores_{generation_model}.csv'
+        if latest_file.exists():
+            self.logger.info(f"既存のゲシュタルトスコアファイルが見つかりました: {latest_file}")
+            return latest_file
+
+        # 互換性のため、過去のanalysis_*構造からも検索
+        legacy_dirs = sorted(self.base_output_dir.glob("analysis_*"), reverse=True)
+        for analysis_dir in legacy_dirs:
+            candidate_file = analysis_dir / "features" / f'gestalt_scores_{generation_model}.csv'
+            if candidate_file.exists():
+                self.logger.info(f"既存のゲシュタルトスコアファイルが見つかりました: {candidate_file}")
+                return candidate_file
+
         self.logger.warning(f"既存のゲシュタルトスコアファイルが見つかりませんでした: gestalt_scores_{generation_model}.csv")
         return None
     

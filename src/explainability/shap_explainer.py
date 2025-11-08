@@ -71,119 +71,68 @@ class SHAPExplainer:
     
     def load_model_and_data(self) -> Tuple[pd.DataFrame, np.ndarray]:
         """モデルとデータを読み込み"""
-        base_dir = self.base_output_dir
         model_file = None
         scaler_file = None
         features_file = None
-        
+
         # カスタムファイルパスが指定されている場合
         if self.model_file is not None:
             model_file = Path(self.model_file)
             if not model_file.exists():
                 raise FileNotFoundError(f"モデルファイルが見つかりません: {model_file}")
-        
+
         if self.features_file is not None:
             features_file = Path(self.features_file)
             if not features_file.exists():
                 raise FileNotFoundError(f"特徴量ファイルが見つかりません: {features_file}")
-        
-        # タスクタイプに応じてモデルファイルを検索
+
+        models_dir = self.timestamp_manager.get_models_dir()
+
         if model_file is None:
-            analysis_dirs = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
-            if analysis_dirs:
-                latest_dir = max(analysis_dirs, key=lambda x: x.stat().st_mtime)
-                
-                if self.task_type == 'authenticity':
-                    # WikiArt_VLMモデルファイルを検索
-                    wikiart_model_files = list((latest_dir / 'models').glob('random_forest_model*.pkl'))
-                    if wikiart_model_files:
-                        model_file = wikiart_model_files[0]
-                    else:
-                        model_file = latest_dir / 'models' / 'random_forest_model.pkl'
-                else:
-                    model_file = latest_dir / 'models' / 'random_forest_model.pkl'
-                
-                scaler_file = latest_dir / 'models' / 'scaler.pkl'
-                
-                # タイムスタンプ付きディレクトリにファイルがない場合は直接のディレクトリを試す
-                if not model_file.exists():
-                    if self.task_type == 'authenticity':
-                        wikiart_model_files = list((base_dir / 'models').glob('random_forest_model*.pkl'))
-                        if wikiart_model_files:
-                            model_file = wikiart_model_files[0]
-                        else:
-                            model_file = base_dir / 'models' / 'random_forest_model.pkl'
-                    else:
-                        model_file = base_dir / 'models' / 'random_forest_model.pkl'
-                    scaler_file = base_dir / 'models' / 'scaler.pkl'
+            if self.task_type == 'authenticity':
+                wikiart_model_files = sorted(models_dir.glob('random_forest_model*.pkl'))
+                model_file = wikiart_model_files[0] if wikiart_model_files else models_dir / 'random_forest_model.pkl'
             else:
-                # フォールバック: 直接のmodelsディレクトリ
-                if self.task_type == 'authenticity':
-                    wikiart_model_files = list((base_dir / 'models').glob('random_forest_model*.pkl'))
-                    if wikiart_model_files:
-                        model_file = wikiart_model_files[0]
-                    else:
-                        model_file = base_dir / 'models' / 'random_forest_model.pkl'
-                else:
-                    model_file = base_dir / 'models' / 'random_forest_model.pkl'
-                scaler_file = base_dir / 'models' / 'scaler.pkl'
-        
+                model_file = models_dir / 'random_forest_model.pkl'
+
         if not model_file.exists():
             raise FileNotFoundError(f"モデルファイルが見つかりません: {model_file}")
-        
+
         with open(model_file, 'rb') as f:
             model_data = pickle.load(f)
         
         self.model = model_data['model']
         self.label_encoder = model_data.get('label_encoder')  # authenticityタスクではNoneの可能性がある
         self.feature_columns = model_data['feature_columns']
-        
+
         # スケーラーを読み込み
         if scaler_file is None:
-            # スケーラーファイルのパスを推定
-            analysis_dirs_scaler = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
-            if analysis_dirs_scaler:
-                latest_dir = max(analysis_dirs_scaler, key=lambda x: x.stat().st_mtime)
-                if self.task_type == 'authenticity':
-                    wikiart_scaler_files = list((latest_dir / 'models').glob('wikiart_vlm_scaler*.pkl'))
-                    if wikiart_scaler_files:
-                        scaler_file = wikiart_scaler_files[0]
-                    else:
-                        scaler_file = latest_dir / 'models' / 'scaler.pkl'
-                else:
-                    scaler_file = latest_dir / 'models' / 'scaler.pkl'
+            if self.task_type == 'authenticity':
+                wikiart_scaler_files = sorted(models_dir.glob('wikiart_vlm_scaler*.pkl'))
+                scaler_file = wikiart_scaler_files[0] if wikiart_scaler_files else models_dir / 'scaler.pkl'
             else:
-                scaler_file = base_dir / 'models' / 'scaler.pkl'
-        
+                scaler_file = models_dir / 'scaler.pkl'
+
         if scaler_file.exists():
             with open(scaler_file, 'rb') as f:
                 self.scaler = pickle.load(f)
-        
-        # 特徴量ファイルの検索
+
+        features_dir = self.timestamp_manager.get_features_dir()
+
         if features_file is None:
-            analysis_dirs_features = [d for d in base_dir.iterdir() if d.is_dir() and d.name.startswith('analysis_')]
             if self.task_type == 'authenticity':
-                # WikiArt_VLM特徴量ファイルを検索
-                if analysis_dirs_features:
-                    latest_dir = max(analysis_dirs_features, key=lambda x: x.stat().st_mtime)
-                    wikiart_feature_files = list((latest_dir / 'features').glob('wikiart_vlm_features_*.csv'))
-                    if wikiart_feature_files:
-                        features_file = wikiart_feature_files[0]
-                    else:
-                        features_file = latest_dir / 'features' / self.data_config['features_file']
-                else:
-                    features_file = base_dir / 'features' / self.data_config['features_file']
+                wikiart_feature_files = sorted(features_dir.glob('wikiart_vlm_features_*.csv'))
+                features_file = wikiart_feature_files[0] if wikiart_feature_files else features_dir / self.data_config['features_file']
             else:
-                if analysis_dirs_features:
-                    latest_dir = max(analysis_dirs_features, key=lambda x: x.stat().st_mtime)
-                    features_file = latest_dir / 'features' / self.data_config['features_file']
-                else:
-                    features_file = base_dir / 'features' / self.data_config['features_file']
-        
-        if not features_file.with_suffix('.csv').exists():
+                features_file = features_dir / self.data_config['features_file']
+
+        csv_candidate = features_file.with_suffix('.csv')
+        if csv_candidate.exists():
+            features_file = csv_candidate
+        elif not features_file.exists():
             raise FileNotFoundError(f"特徴量ファイルが見つかりません: {features_file}")
-        
-        df = pd.read_csv(features_file.with_suffix('.csv'))
+
+        df = pd.read_csv(features_file)
         
         # 特徴量を抽出
         X = df[self.feature_columns].values
