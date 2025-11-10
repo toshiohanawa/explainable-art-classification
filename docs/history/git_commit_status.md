@@ -2,6 +2,8 @@
 
 ## 現在の状態
 
+> **Note (2025-11-07)**: データディレクトリ整理により、`data/WikiArt_VLM-main` / `data/WikiArt` は `data/external/` 配下へ移動しました。本レポート内の旧パス表記は新構成では `data/external/WikiArt_VLM-main` / `data/external/WikiArt` を指します。
+
 ### ✅ ブランチ情報
 - **現在のブランチ**: `main`
 - **リモート**: `origin/main` と同期済み
@@ -155,4 +157,3 @@ git push origin main
 1. **大容量ファイル**: `data/WikiArt/wikiart_data.csv` (81,445行) が含まれています
 2. **バイナリファイル**: `data/WikiArt_VLM-main/All_gpt4.1-mini_prompt.xlsx` が含まれています
 3. **コミット前の確認**: すべての変更が意図通りであることを確認してください
-

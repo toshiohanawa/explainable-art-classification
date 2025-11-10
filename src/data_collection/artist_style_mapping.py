@@ -32,7 +32,7 @@ class ArtistStyleMapping:
             self.wikiart_data_path = Path(wikiart_data_path)
         else:
             wikiart_filters = config.get('wikiart_filters', {})
-            default_path = Path('data/WikiArt/wikiart_data.csv')
+            default_path = Path('data/external/WikiArt/wikiart_data.csv')
             self.wikiart_data_path = Path(wikiart_filters.get('wikiart_data_path', default_path))
         
         self.logger = logging.getLogger(__name__)
@@ -176,4 +176,3 @@ def create_artist_style_mapping_from_config(config: Dict[str, Any],
     """
     mapper = ArtistStyleMapping(config, wikiart_data_path)
     return mapper.create_artist_style_mapping()
-

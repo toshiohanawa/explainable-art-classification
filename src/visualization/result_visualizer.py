@@ -35,8 +35,15 @@ class ResultVisualizer:
         
         # 出力ディレクトリ
         self.output_dir = Path(self.data_config['output_dir'])
-        self.viz_dir = self.output_dir / 'visualizations'
-        self.viz_dir.mkdir(exist_ok=True)
+        artifacts_subdir = self.data_config.get('artifacts_subdir', '').strip()
+        if artifacts_subdir:
+            self.output_dir = self.output_dir / artifacts_subdir
+        latest_label = self.data_config.get('latest_label', 'latest')
+        self.viz_dir = self.output_dir / 'visualizations' / latest_label
+        self.results_dir = self.output_dir / 'results' / latest_label
+        self.features_dir = self.output_dir / 'features' / latest_label
+        self.shap_dir = self.output_dir / 'shap_explanations' / latest_label
+        self.viz_dir.mkdir(parents=True, exist_ok=True)
         
         # スタイル設定
         plt.style.use('seaborn-v0_8')
@@ -64,7 +71,7 @@ class ResultVisualizer:
     def _load_data(self) -> pd.DataFrame:
         """データを読み込み"""
         # 特徴量データ
-        features_file = self.output_dir / self.data_config['features_file']
+        features_file = self.features_dir / self.data_config['features_file']
         if not features_file.with_suffix('.csv').exists():
             raise FileNotFoundError(f"特徴量ファイルが見つかりません: {features_file}")
         
@@ -127,13 +134,13 @@ class ResultVisualizer:
     def _create_classification_results(self, df: pd.DataFrame) -> None:
         """分類結果の可視化"""
         # モデル結果を読み込み
-        results_file = self.output_dir / 'training_results.txt'
+        results_file = self.results_dir / 'training_results.txt'
         if not results_file.exists():
             self.logger.warning("訓練結果ファイルが見つかりません")
             return
         
         # 混同行列を読み込み
-        cm_file = self.output_dir / 'confusion_matrix.png'
+        cm_file = self.viz_dir / 'confusion_matrix.png'
         if cm_file.exists():
             # 混同行列をコピー
             import shutil
@@ -141,7 +148,7 @@ class ResultVisualizer:
             shutil.copy2(cm_file, viz_cm_file)
         
         # 特徴量重要度を読み込み
-        importance_file = self.output_dir / 'feature_importance.png'
+        importance_file = self.viz_dir / 'feature_importance.png'
         if importance_file.exists():
             viz_importance_file = self.viz_dir / 'feature_importance.png'
             shutil.copy2(importance_file, viz_importance_file)
@@ -186,7 +193,7 @@ class ResultVisualizer:
     
     def _create_shap_analysis(self) -> None:
         """SHAP分析の可視化"""
-        shap_dir = self.output_dir / 'shap_results'
+        shap_dir = self.shap_dir
         
         if not shap_dir.exists():
             self.logger.warning("SHAP結果ディレクトリが見つかりません")
@@ -391,7 +398,7 @@ class ResultVisualizer:
         
         <div class="summary">
             <h3>プロジェクト概要</h3>
-            <p>このプロジェクトでは、ランダムフォレストとSHAPを用いて、Metropolitan Museumの作品を印象派と非印象派に分類し、その判断根拠を解釈可能な形で可視化しました。</p>
+            <p>このプロジェクトでは、WikiArt_VLMデータセットに含まれる本物の絵画と生成AI（Stable Diffusionなど）が作成した模倣画像を対象に、ランダムフォレストとSHAPで「本物 vs フェイク」を説明可能な形で可視化しました。</p>
         </div>
         
         <h2>1. データ概要</h2>

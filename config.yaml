@@ -10,9 +10,11 @@ api:
 # データ設定
 data:
   output_dir: "data"
-  raw_data_dir: "data/raw_data"
-  filtered_data_dir: "data/filtered_data"
-  images_dir: "raw_images"
+  artifacts_subdir: "artifacts"
+  experiments_subdir: "experiments"
+  raw_data_dir: "data/raw/raw_data"
+  filtered_data_dir: "data/curated/filtered_data"
+  images_dir: "raw/raw_images"
   paintings_images_dir: "paintings_images"
   metadata_file: "artwork_metadata.csv"
   paintings_metadata_file: "paintings_metadata.csv"
@@ -131,7 +133,7 @@ painting_filters:
 
 # WikiArt_VLMデータセット設定
 wikiart_vlm:
-  base_path: "data/WikiArt_VLM-main"
+  base_path: "data/external/WikiArt_VLM-main"
   generation_models:
     - "Stable-Diffusion"
     - "FLUX"
@@ -154,7 +156,7 @@ gestalt_scoring:
 # WikiArt_VLMフィルタリング設定
 wikiart_filters:
   enabled: true  # フィルタリングを有効にするか（デフォルト: Impressionismに絞る）
-  wikiart_data_path: "data/WikiArt/wikiart_data.csv"  # Hugging Faceデータセットのパス
+  wikiart_data_path: "data/external/WikiArt/wikiart_data.csv"  # Hugging Faceデータセットのパス
   style: ["Impressionism"]  # デフォルト: Impressionismに絞る（例: ["Impressionism", "Post_Impressionism"]）
   artist: []  # 追加でartist名でフィルタリング（オプション）
   include_unknown: false  # "Unknown Artist"を含めるか

@@ -73,7 +73,7 @@ def main():
     
     if success:
         print("\nフィルタリングが正常に完了しました。")
-        print("結果ファイル: data/filtered_data/paintings_metadata.csv")
+        print("結果ファイル: data/curated/filtered_data/paintings_metadata.csv")
     else:
         print("\nフィルタリング中にエラーが発生しました。ログを確認してください。")
 

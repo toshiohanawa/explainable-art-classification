@@ -39,6 +39,8 @@ class ColorFeatureExtractor:
         
         # 生データは固定ディレクトリから読み込み、分析結果はタイムスタンプ付きディレクトリに保存
         self.base_output_dir = Path(self.data_config['output_dir'])
+        experiments_subdir = self.data_config.get('experiments_subdir', '').strip()
+        self.experiments_root = self.base_output_dir / experiments_subdir if experiments_subdir else self.base_output_dir
         self.images_dir = self.base_output_dir / self.data_config['images_dir']
         
         # タイムスタンプ管理（共有または新規作成）
@@ -58,7 +60,7 @@ class ColorFeatureExtractor:
         
     def load_metadata(self) -> pd.DataFrame:
         """メタデータを読み込み"""
-        metadata_file = self.base_output_dir / 'raw_data' / self.data_config['metadata_file']
+        metadata_file = self.timestamp_manager.get_raw_data_dir() / self.data_config['metadata_file']
         
         if not metadata_file.exists():
             raise FileNotFoundError(f"メタデータファイルが見つかりません: {metadata_file}")
@@ -751,7 +753,7 @@ class ColorFeatureExtractor:
             return latest_file
 
         # 互換性のため、過去のanalysis_*構造からも検索
-        legacy_dirs = sorted(self.base_output_dir.glob("analysis_*"), reverse=True)
+        legacy_dirs = sorted(self.experiments_root.glob("analysis_*"), reverse=True)
         for analysis_dir in legacy_dirs:
             candidate_file = analysis_dir / "features" / f'gestalt_scores_{generation_model}.csv'
             if candidate_file.exists():

@@ -20,7 +20,7 @@ from src.utils.logger import setup_logging, get_logger
 class PaintingDataAnalyzer:
     """絵画データ分析クラス"""
     
-    def __init__(self, csv_path: str = "data/raw_data/MetObjects.csv"):
+    def __init__(self, csv_path: str = "data/raw/raw_data/MetObjects.csv"):
         self.csv_path = Path(csv_path)
         self.df = None
         self.results = {}

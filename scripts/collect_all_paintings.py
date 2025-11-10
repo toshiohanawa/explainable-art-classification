@@ -100,7 +100,7 @@ def main():
     
     if success:
         print("\n全件データ収集が正常に完了しました。")
-        print("結果ファイル: data/filtered_data/paintings_complete_dataset.csv")
+        print("結果ファイル: data/curated/filtered_data/paintings_complete_dataset.csv")
     else:
         print("\n全件データ収集中にエラーが発生しました。ログを確認してください。")
 

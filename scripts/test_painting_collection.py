@@ -104,7 +104,7 @@ def main():
     
     if success:
         print("\nテストが正常に完了しました。")
-        print("結果ファイル: data/filtered_data/test_paintings_200.csv")
+        print("結果ファイル: data/curated/filtered_data/test_paintings_200.csv")
     else:
         print("\nテスト中にエラーが発生しました。ログを確認してください。")
 

@@ -34,7 +34,7 @@ class WikiArtVLMDataLoader:
         self.wikiart_config = config.get('wikiart_vlm', {})
         
         # WikiArt_VLM dataset path
-        self.base_path = Path(self.wikiart_config.get('base_path', 'data/WikiArt_VLM-main'))
+        self.base_path = Path(self.wikiart_config.get('base_path', 'data/external/WikiArt_VLM-main'))
         self.original_dir = self.base_path / 'images' / 'Original'
         self.prompt_file = self.base_path / 'All_gpt4.1-mini_prompt.xlsx'
         
@@ -119,7 +119,7 @@ class WikiArtVLMDataLoader:
         
         # Initialize artist-style mapper
         if self.artist_style_mapper is None:
-            wikiart_data_path = self.filtering_config.get('wikiart_data_path', 'data/WikiArt/wikiart_data.csv')
+            wikiart_data_path = self.filtering_config.get('wikiart_data_path', 'data/external/WikiArt/wikiart_data.csv')
             self.artist_style_mapper = ArtistStyleMapping(self.config, wikiart_data_path)
         
         # Create artist-style mapping
@@ -451,4 +451,3 @@ class WikiArtVLMDataLoader:
         checks['sample_images_exist'] = all_exist
         
         return checks
-

@@ -83,7 +83,9 @@ class GestaltScorer:
         self.output_dir = self.timestamp_manager.get_output_dir()
         self.features_dir = self.timestamp_manager.get_features_dir()
         self.gestalt_dir = self.timestamp_manager.get_gestalt_dir()
-        self.data_root = Path(self.data_config.get('output_dir', 'data'))
+        self.base_output_dir = Path(self.data_config.get('output_dir', 'data'))
+        experiments_subdir = self.data_config.get('experiments_subdir', '').strip()
+        self.experiments_root = self.base_output_dir / experiments_subdir if experiments_subdir else self.base_output_dir
 
         # ディレクトリ作成
         self.timestamp_manager.create_directories()
@@ -451,7 +453,7 @@ Now evaluate the following image:"""
             except Exception as e:
                 self.logger.warning(f"既存ファイルの読み込みエラー: {e}")
         
-        legacy_dirs = sorted(self.data_root.glob("analysis_*"), reverse=True)
+        legacy_dirs = sorted(self.experiments_root.glob("analysis_*"), reverse=True)
         for analysis_dir in legacy_dirs:
             candidate_file = analysis_dir / "features" / f'gestalt_scores_{generation_model}.csv'
             if not candidate_file.exists():

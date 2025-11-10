@@ -90,7 +90,7 @@ def main():
     
     if success:
         print("\n画像ダウンロードが正常に完了しました。")
-        print("画像保存先: data/filtered_data/paintings_images/")
+        print("画像保存先: data/curated/filtered_data/paintings_images/")
     else:
         print("\n画像ダウンロード中にエラーが発生しました。ログを確認してください。")
 

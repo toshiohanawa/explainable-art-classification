@@ -12,7 +12,13 @@ import pandas as pd
 class StatusChecker:
     """ステータスチェッククラス"""
     
-    def __init__(self, data_dir: str = "data"):
+    def __init__(
+        self,
+        data_dir: str = "data",
+        raw_data_dir: Optional[str] = None,
+        filtered_data_dir: Optional[str] = None,
+        paintings_images_subdir: str = "paintings_images"
+    ):
         """
         初期化
         
@@ -20,9 +26,9 @@ class StatusChecker:
             data_dir: データディレクトリのパス
         """
         self.data_dir = Path(data_dir)
-        self.raw_data_dir = self.data_dir / "raw_data"
-        self.filtered_data_dir = self.data_dir / "filtered_data"
-        self.images_dir = self.filtered_data_dir / "paintings_images"
+        self.raw_data_dir = Path(raw_data_dir) if raw_data_dir else self.data_dir / "raw_data"
+        self.filtered_data_dir = Path(filtered_data_dir) if filtered_data_dir else self.data_dir / "filtered_data"
+        self.images_dir = self.filtered_data_dir / paintings_images_subdir
     
     def check_data_collection_status(self) -> Dict[str, Any]:
         """
@@ -283,4 +289,3 @@ class StatusChecker:
             print("\n=== Medium分布（上位10件） ===")
             for medium, count in results['medium_counts'].items():
                 print(f"{medium}: {count}件")
-

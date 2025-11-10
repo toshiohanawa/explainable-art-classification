@@ -29,10 +29,10 @@ def filter_european_paintings():
     logger.info("=== European Paintingsフィルタリング開始 ===")
     
     # パスの設定
-    input_csv = Path("data/filtered_data/paintings_complete_dataset.csv")
-    output_csv = Path("data/filtered_data/paintings_complete_dataset.csv")
-    backup_csv = Path("data/filtered_data/paintings_complete_dataset_backup.csv")
-    images_dir = Path("data/filtered_data/paintings_images")
+    input_csv = Path("data/curated/filtered_data/paintings_complete_dataset.csv")
+    output_csv = Path("data/curated/filtered_data/paintings_complete_dataset.csv")
+    backup_csv = Path("data/curated/filtered_data/paintings_complete_dataset_backup.csv")
+    images_dir = Path("data/curated/filtered_data/paintings_images")
     report_file = Path("docs") / "european_paintings_filter_report.txt"
     
     # 入力ファイルの存在確認
@@ -189,8 +189,8 @@ def main():
             print("\n✅ フィルタリングが正常に完了しました！")
             print("\n次のステップ:")
             print("  1. config.yamlのpainting_filtersを更新")
-            print("  2. フィルタリング結果を確認: data/filtered_data/european_paintings_filter_report.txt")
-            print("  3. バックアップファイル: data/filtered_data/paintings_complete_dataset_backup.csv")
+            print("  2. フィルタリング結果を確認: data/curated/filtered_data/european_paintings_filter_report.txt")
+            print("  3. バックアップファイル: data/curated/filtered_data/paintings_complete_dataset_backup.csv")
         else:
             print("\n❌ フィルタリング中にエラーが発生しました。ログを確認してください。")
     except Exception as e:

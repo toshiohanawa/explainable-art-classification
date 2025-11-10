@@ -2,14 +2,14 @@
 
 ## プロジェクト概要
 
-このプロジェクトは、ランダムフォレストとSHAPを用いて、Metropolitan Museumの作品を印象派と非印象派に分類し、その判断根拠を解釈可能な形で可視化する講義教材です。
+このプロジェクトは、WikiArt_VLMデータセットに含まれる本物の絵画画像と生成AI（Stable Diffusion / FLUX / F-Lite）による模倣画像を対象に、ランダムフォレストとSHAPで「本物 vs フェイク」を説明可能に分類する講義教材です。
 
 ## 特徴
 
 - **説明可能AI**: SHAPを用いてモデルの判断根拠を可視化
 - **芸術とテクノロジーの融合**: 機械学習と芸術史の学際的アプローチ
 - **教育的価値**: データサイエンス学習者向けの実践的教材
-- **オープンデータ**: Metropolitan Museum APIの活用
+- **公開データ**: WikiArt_VLMデータセットとGestaltスコアを活用
 
 ## 技術スタック
 
@@ -17,7 +17,7 @@
 - **機械学習**: scikit-learn, SHAP
 - **画像処理**: OpenCV, PIL
 - **可視化**: matplotlib, seaborn, plotly
-- **データソース**: Metropolitan Museum API
+- **データソース**: WikiArt_VLMデータセット（Original + Generatedペア）
 
 ## プロジェクト構造
 
@@ -35,35 +35,37 @@ explainable-art-classification/
 │       ├── status_checker.py    # ステータスチェック
 │       └── timestamp_manager.py # タイムスタンプ管理
 ├── scripts/               # 実行スクリプト
-│   ├── collect_all_paintings.py   # 全件データ収集
-│   ├── download_painting_images.py # 画像ダウンロード
-│   ├── filter_paintings_only.py    # 絵画フィルタリング
-│   ├── filter_european_paintings.py # European Paintingsフィルタリング
-│   ├── create_dataset_from_images.py # 画像からデータセット作成
-│   ├── verify_filtering_results.py   # フィルタリング結果確認
-│   ├── test_painting_collection.py  # テスト収集
-│   ├── check_status.py             # ステータスチェック
-│   └── analyze_csv_for_paintings.py # CSV分析
+│   ├── train_wikiart_vlm.py        # WikiArt_VLMパイプライン（特徴量抽出～学習）
+│   ├── score_gestalt_principles.py # MLLMによるゲシュタルト原則スコア評価
+│   ├── compare_generation_models.py# 生成モデル間の性能比較
+│   ├── run_all_phases.py           # 現行フェーズ一括実行ラッパー
+│   └── legacy_*                    # 初期の美術館API向けスクリプト（現在は使用しない）
 ├── data/                  # データファイル
-│   ├── raw_data/          # 生データ
-│   │   ├── MetObjects.csv          # MetObjects全データ（484,956件）
-│   │   ├── paintings_metadata.csv  # 絵画メタデータ
-│   │   └── checkpoint.json         # データ収集チェックポイント
-│   └── filtered_data/     # フィルタリング済みデータ
-│       ├── paintings_complete_dataset.csv  # 完全データセット
-│       ├── paintings_metadata.csv          # メタデータ
-│       ├── dataset_from_images.csv         # 画像から作成したデータセット
-│       └── paintings_images/              # ダウンロード済み画像
+│   ├── raw/               # 生データ
+│   │   ├── raw_data/      # Met APIメタデータ＆チェックポイント
+│   │   └── raw_images/    # 元画像
+│   ├── curated/           # フィルタ済みデータ
+│   │   └── filtered_data/ # paintings_metadata.csv, paintings_images/
+│   ├── artifacts/         # 最新成果物（latest/配下がデフォルト）
+│   │   ├── features/          # 特徴量CSV（例: latest/wikiart_vlm_features_with_gestalt_*.csv）
+│   │   ├── models/            # 学習済みモデル・スケーラー
+│   │   ├── results/           # 訓練ログ・分析CSV
+│   │   ├── visualizations/    # 可視化（confusion_matrix.png, dependence_plot_*.png など）
+│   │   ├── shap_explanations/ # SHAP解析結果
+│   │   └── gestalt/           # LLaVAによるゲシュタルト原則スコア
+│   ├── experiments/       # タイムスタンプ付きスナップショット
+│   │   └── analysis_<ts>/ # 各ステージ成果物をまとめて保存
+│   └── external/          # 外部公開データ
+│       ├── WikiArt_VLM-main/  # 公式配布データセット（Original/Generated画像・CSV）
+│       └── WikiArt/           # Hugging Face由来の補助CSV
 ├── notebooks/             # Jupyterノートブック
 │   ├── eda_paintings_complete_dataset.ipynb # EDAノートブック
 │   └── prepare_data_for_shap_class.ipynb # shap-class用データ準備ノートブック
-├── docs/                  # ドキュメントとレポート
-│   ├── cursor_chat_history.md              # 開発履歴
-│   ├── implementation_status_report.md      # 実装状況レポート
-│   ├── project_status_20251029.md         # プロジェクト状況
-│   ├── requirements_specification.md       # 要件定義
-│   ├── painting_analysis_results.txt      # CSV分析結果
-│   └── european_paintings_filter_report.txt # フィルタリングレポート
+├── docs/                  # ドキュメント群
+│   ├── history/           # 開発ログ・コミット履歴
+│   ├── reports/           # 実装レポートや演習レポート
+│   ├── guides/            # 手順書・チートシート
+│   └── plans/             # 計画書・提案資料
 ├── tests/                 # テストファイル
 ├── logs/                  # ログファイル
 ├── config.yaml           # 設定ファイル
@@ -125,69 +127,52 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 全プロセスを実行
+### 現行パイプラインの実行
 
 ```bash
-python main.py --mode all
+# 特徴量抽出 → Gestaltスコア統合 → ランダムフォレスト学習 → SHAP解析
+python scripts/train_wikiart_vlm.py --mode all --generation-model Stable-Diffusion --include-gestalt
 ```
 
-### 個別プロセスの実行
+### 主なサブモード
 
 ```bash
-# メタデータ収集のみ（高速）
-python main.py --mode metadata
+# 特徴量抽出のみ（generation-modelは Stable-Diffusion / FLUX / F-Lite から選択）
+python scripts/train_wikiart_vlm.py --mode features --generation-model Stable-Diffusion
 
-# 画像ダウンロードのみ（メタデータ収集後）
-python main.py --mode images
+# ゲシュタルト原則スコア取得のみ（LLaVA等のMLLMが必要）
+python scripts/score_gestalt_principles.py --generation-model Stable-Diffusion
 
-# データ収集（メタデータ + 画像）
-python main.py --mode collect
+# モデル訓練 + SHAPのみ（抽出済み特徴量を再利用）
+python scripts/train_wikiart_vlm.py --mode train --generation-model Stable-Diffusion --include-gestalt
 
-# 特徴量抽出のみ
-python main.py --mode extract
-
-# モデル訓練のみ
-python main.py --mode train
-
-# SHAP説明のみ
-python main.py --mode explain
+# 生成モデルごとの性能比較
+python scripts/compare_generation_models.py --generation-models Stable-Diffusion FLUX F-Lite
 ```
 
-### データ収集スクリプト
+`run_all_phases.py` からも同様のフェーズ実行が可能です。`main.py` にある旧モード類は保守目的で残っていますが、現行カリキュラムでは `scripts/train_wikiart_vlm.py` 系を利用してください。
+
+### バイアス可視化ツール
 
 ```bash
-# 絵画データのフィルタリング
-python scripts/filter_paintings_only.py
-
-# 全件データ収集（9,005件）
-python scripts/collect_all_paintings.py
-
-# 画像ダウンロード
-python scripts/download_painting_images.py
-
-# テスト収集（200件）
-python scripts/test_painting_collection.py
-
-# ステータスチェック
-python scripts/check_status.py --type all
-python scripts/check_status.py --type collection  # データ収集のみ
-python scripts/check_status.py --type download    # ダウンロードのみ
-python scripts/check_status.py --type test        # テスト結果のみ
-
-# CSV分析
-python scripts/analyze_csv_for_paintings.py
-
-# European Paintingsフィルタリング
-python scripts/filter_european_paintings.py
-
-# フィルタリング結果確認
-python scripts/verify_filtering_results.py
-
-# 画像からデータセット作成
-# paintings_imagesディレクトリの画像ファイル名（Object_ID）から
-# MetObjects.csvから対応するデータを抽出してデータセットを作成
-python scripts/create_dataset_from_images.py
+# ラベル別の主要特徴量統計と分布図を出力
+python scripts/analyze_bias.py --generation-model Stable-Diffusion
 ```
+
+- 出力: `data/artifacts/results/latest/bias_feature_summary.csv`
+- 可視化: `data/artifacts/visualizations/latest/bias_feature_mean_diff.png`, `bias_feature_distributions.png`
+- 生成モデル固有の色彩・テクスチャ差異を学習者に提示する補助教材として利用できます。
+
+### 特徴量抽出の可視化ツール
+
+```bash
+# 実際の画像を使って特徴量抽出の過程を可視化
+python scripts/visualize_feature_extraction.py --image-id 9733
+```
+
+- 出力: `data/artifacts/visualizations/latest/feature_visualization_color_*.png`, `feature_visualization_edge_*.png`, `feature_visualization_texture_*.png`
+- 色彩特徴量（HSV色空間）、エッジ特徴量（Canny検出）、テクスチャ特徴量（LBP）の可視化を生成
+- 本物とフェイクの画像を並べて比較し、特徴量の違いを視覚的に理解できます
 
 ### Jupyterノートブック
 
@@ -200,13 +185,6 @@ jupyter lab notebooks/
 ```
 
 #### 利用可能なノートブック
-
-- **`notebooks/eda_paintings_complete_dataset.ipynb`**: 探索的データ分析（EDA）
-  - データセットの概要分析
-  - 文化圏、年代、メディア、アーティストの分析
-  - JSONデータ（タグ、constituents、測定値）の解析
-  - 画像データの分析
-  - 各種可視化と統計分析
 
 - **`notebooks/prepare_data_for_shap_class.ipynb`**: shap-class用データ準備
   - WikiArt_VLMデータセットの読み込み
@@ -264,92 +242,77 @@ python -m ipykernel install --user --name explainable-art-classification --displ
 
 ### 基本ワークフロー
 
-1. **データ収集**: 
-   - Metropolitan Museum APIから作品データと画像を取得
-   - または `MetObjects.csv`からデータを抽出
-2. **データ前処理**: 
-   - 絵画データのフィルタリング
-   - 画像ファイル名からデータセット作成
-3. **探索的データ分析（EDA）**: 
-   - Jupyter Notebookでデータの概要を把握
-   - 統計分析と可視化
-4. **特徴量抽出**: 画像から色彩・構図特徴量を抽出
-5. **モデル訓練**: ランダムフォレスト分類器を訓練
-6. **SHAP説明**: モデルの判断根拠を可視化
-7. **結果可視化**: 包括的なレポートを生成
+1. **データ同期**: `data/external/WikiArt_VLM-main/` を取得（配布リポジトリをサブモジュールとして追加するか、アーカイブを展開）
+2. **（任意）ゲシュタルト評価**: `scripts/score_gestalt_principles.py` でLLaVA等のMLLMを用いて視覚的原則スコアを付与
+3. **特徴量抽出**: `scripts/train_wikiart_vlm.py --mode features ...` で色彩・テクスチャ・エッジ特徴量をCSV化
+4. **特徴量統合**: 抽出特徴量とゲシュタルトスコアをマージし、タイムスタンプ付き`data/artifacts/features/<ts>/`に保存
+5. **モデル訓練**: ランダムフォレストによる学習・交差検証・グリッドサーチ、`data/artifacts/models/<ts>/`へ成果物保存
+6. **SHAP解析**: `scripts/train_wikiart_vlm.py --mode explain ...` または `src/explainability/shap_explainer.py` を経由してTreeExplainerを生成
+7. **可視化/レポート**: `data/artifacts/visualizations/<ts>/`, `data/artifacts/results/<ts>/` に混同行列やSHAP summary plotを出力
 
-### データセット作成フロー
+### データセット準備フロー
 
 ```bash
-# 1. 画像ファイル名からデータセットを作成
-python scripts/create_dataset_from_images.py
-
-# 2. 作成されたデータセットでEDAを実行
-jupyter notebook notebooks/eda_paintings_complete_dataset.ipynb
+# shap-class向けにtrain/validation CSVを書き出す
+jupyter notebook notebooks/prepare_data_for_shap_class.ipynb
 ```
 
 ## 出力ファイル
 
-プロジェクト実行後、以下の構造でファイルが生成されます：
+プロジェクト実行後は以下の構造に成果物がまとまります。
 
 ```
 data/
-├── raw_data/                    # 生データ
-│   ├── MetObjects.csv           # MetObjects全データ
-│   ├── paintings_metadata.csv  # 作品メタデータ
-│   ├── checkpoint.json          # データ収集チェックポイント
-│   └── api_data.json           # API取得データ（JSON形式）
-├── filtered_data/               # フィルタリング済みデータ
-│   ├── paintings_complete_dataset.csv  # 完全データセット
-│   ├── paintings_metadata.csv         # メタデータ
-│   ├── dataset_from_images.csv        # 画像から作成したデータセット
-│   └── paintings_images/              # ダウンロード済み画像
-│       └── *.jpg                       # 画像ファイル（Object_ID.jpg形式）
-├── features/                    # 特徴量データ（タイムスタンプ付きディレクトリ）
-│   └── color_features.pkl       # 抽出された特徴量
-├── models/                      # 機械学習モデル（タイムスタンプ付きディレクトリ）
-│   ├── random_forest_model.pkl  # 訓練済みモデル
-│   └── scaler.pkl              # 特徴量スケーラー
-├── results/                     # 訓練結果（タイムスタンプ付きディレクトリ）
-│   └── training_results.txt     # 詳細な訓練結果
-├── visualizations/              # 可視化結果（タイムスタンプ付きディレクトリ）
-│   ├── confusion_matrix.png     # 混同行列
-│   ├── feature_importance.png   # 特徴量重要度
-│   ├── shap_summary_plot.png    # SHAP summary plot
-│   ├── shap_feature_importance.png # SHAP特徴量重要度
-│   └── dependence_plot_*.png    # 依存関係プロット
-└── shap_explanations/           # SHAP説明データ（タイムスタンプ付きディレクトリ）
-    ├── shap_values.csv          # SHAP値データ
-    └── feature_importance_shap.csv # SHAP特徴量重要度
+├── raw/
+│   ├── raw_data/                    # Met APIメタデータ、checkpoint.json、QAログ
+│   └── raw_images/                  # 生画像（ダウンロード済み）
+├── curated/
+│   └── filtered_data/
+│       ├── paintings_metadata.csv
+│       └── paintings_images/
+├── artifacts/                       # 最新成果物（latest/ 配下）
+│   ├── features/latest/
+│   ├── models/latest/
+│   ├── results/latest/
+│   ├── visualizations/latest/
+│   ├── shap_explanations/latest/
+│   └── gestalt/latest/
+├── experiments/
+│   └── analysis_<ts>/               # use_timestamp=true 時のスナップショット
+└── external/
+    ├── WikiArt_VLM-main/            # 公式配布データセット（Original/Generated/Prompts）
+    └── WikiArt/                     # Hugging Face由来の補助CSV
 
-docs/                            # ドキュメントとレポート
-├── painting_analysis_results.txt      # CSV分析結果
-└── european_paintings_filter_report.txt # フィルタリングレポート
+docs/
+├── history/                         # cursor_chat_history.md など
+├── reports/                         # exercise_report.*, implementation_status_report.md など
+├── guides/                          # feature_columns_definition.md など
+└── plans/                           # roadmapや提案資料
 
-logs/                            # ログファイル
-├── project.log                  # メインログ
-├── collect_all_paintings.log    # データ収集ログ
-├── download_images.log          # 画像ダウンロードログ
-└── *.log                        # その他のスクリプトログ
+logs/
+├── project.log
+└── *.log
 ```
+
+詳細な配置と活用ルールは [`data/README.md`](data/README.md) と [`docs/README.md`](docs/README.md) を参照してください。
 
 ## 設定オプション
 
-`config.yaml`で以下の設定を調整できます：
+`config.yaml` の主な項目は次の通りです。
 
-- API設定（レート制限、タイムアウト）
-- データ設定（最小サンプル数、出力ディレクトリ、タイムスタンプ機能）
-- 画像処理設定（リサイズサイズ、色空間）
-- 特徴量設定（抽出する特徴量の種類）
-- 分類設定（テストサイズ、交差検証）
-- SHAP設定（サンプル数、背景データ）
+- `data`: 出力ディレクトリ、タイムスタンプ管理、スナップショットプレフィックス
+- `features`: 抽出する色彩・エッジ・テクスチャ特徴量の有効/無効
+- `classification`: RandomForestのデフォルトパラメータ、分割比率、CV設定
+- `shap`: TreeExplainerのサンプリング数、背景データ数
+- `wikiart_vlm`: 生成モデルやsplit比率、データセットパス
+- `gestalt_scoring`: LLaVAエンドポイント、スコア範囲、再試行設定
 
 ### タイムスタンプ / 最新ディレクトリ機能
 
-- `data.use_timestamp: false`（デフォルト）では、各ステージの成果物が `data/<stage>/latest/` に常に上書きされます。Git からは `latest` 以下だけを追跡すれば「常に最新」を共有できます。
-- `data.use_timestamp: true` を指定すると、従来通り `data/analysis_YYMMDDHHMM/` に成果物を時系列保存します。履歴を残したい検証時向けです。
+- `data.use_timestamp: false`（デフォルト）は `data/artifacts/<stage>/latest/` を常に更新します。教育用途ではこの設定で十分です。
+- `data.use_timestamp: true` にすると `data/experiments/analysis_<YYMMDDHHMM>/` が生成され、実験ごとに成果物をアーカイブできます。
 
-生データ（`data/raw_data/`, `data/raw_images/`）はどちらの設定でも固定ディレクトリに保存されます。最新版を凍結したい場合は `TimestampManager.snapshot_stage('<stage>')` を呼び出し、`snapshot_<timestamp>` ディレクトリを作成できます。
+ベースデータ（`data/raw/…`, `data/external/WikiArt_VLM-main/` など）は設定に関わらず固定ディレクトリに配置されます。最新版を凍結したい場合は `TimestampManager.snapshot_stage('<stage>')` を使って `snapshot_<timestamp>` を作成してください。
 
 ## 教育的活用
 
@@ -363,7 +326,7 @@ logs/                            # ログファイル
 
 ## ライセンス
 
-このプロジェクトは教育目的で作成されています。Metropolitan MuseumのデータはCC0ライセンスで提供されています。
+このプロジェクトは教育目的で作成されています。WikiArt_VLMデータセットおよび付随する生成画像は配布元のライセンスと利用規約に従ってください（研究・教育目的での利用を想定しています）。本リポジトリのコードは各ファイルヘッダーで示すライセンスに従います。
 
 ## 貢献
 
@@ -373,121 +336,51 @@ logs/                            # ログファイル
 
 ### 実装状況（2025年11月7日更新）
 
-- **全体完了度**: 約98%
-- **データ収集システム**: 完全実装済み
-- **EDA環境**: Jupyter Notebook環境構築済み
-- **shap-class統合**: データ準備ノートブック実装済み
-- **Jupyterカーネル**: `explainable-art-classification`カーネルセットアップ済み
-- **コード整理**: リファクタリング完了
-- **ファイル整理**: ディレクトリ構造の最適化完了
+| 項目 | 状況 |
+| --- | --- |
+| データ取得 | WikiArt_VLM-main一式をローカルに同期済み |
+| 特徴量抽出 | 色彩 / テクスチャ / エッジ / ゲシュタルトをCSV化済み |
+| モデル訓練 | RandomForest + GridSearch + Stratified split 完了 |
+| 説明可能性 | SHAP summary / dependence plot / feature importance 完了 |
+| shap-class連携 | Notebookでtrain/validation CSV書き出し済み |
+| ログ / 設定 | 共通Config・Logger・TimestampManagerで管理 |
 
 ### 主要な更新内容
 
-#### データ収集と整理
-- **ハイブリッドデータ収集システム**: CSVとAPIを組み合わせた効率的なデータ収集
-- **画像からデータセット作成**: `create_dataset_from_images.py`で画像ファイル名からデータセットを自動生成
-- **データセット**: `dataset_from_images.csv`（5,396行）を作成可能
-
-#### 探索的データ分析（EDA）
-- **Jupyter Notebook**: 包括的なEDAノートブックを作成
-  - 文化圏、年代、メディア、アーティストの分析
-  - JSONデータ（タグ、constituents、測定値）の解析
-  - 各種可視化と統計分析
-  - 共通ユーティリティ関数でコード再利用性向上
-
-#### shap-class統合
-- **データ準備ノートブック**: `notebooks/prepare_data_for_shap_class.ipynb`を作成
-  - WikiArt_VLMデータセットの読み込みと前処理
-  - train/validation分割（70/30、stratifyを使用）
-  - shap-classリポジトリのセットアップとモデル訓練
-  - Random Forestモデルの訓練と評価
-  - SHAP説明可能性の可視化
-- **Jupyterカーネル**: `explainable-art-classification`カーネルをセットアップ
-  - プロジェクトの仮想環境（`.venv`）を使用
-  - Python 3.12.11環境
-
-#### コードとファイルの整理
-- **スクリプトの整理**: 全ての実行スクリプトを`scripts/`ディレクトリに統一
-- **ドキュメントの整理**: 開発ドキュメントを`docs/`ディレクトリに集約
-- **ログの整理**: 全てのログファイルを`logs/`ディレクトリに集約
-- **共通機能の抽出**: ログ設定、ステータスチェックなどの共通機能を`src/utils/`に統一
+1. **WikiArt_VLMパイプラインの安定化**
+   - `scripts/train_wikiart_vlm.py` による end-to-end 実行
+   - Stable-Diffusion / FLUX / F-Lite ごとの特徴量抽出と性能比較
+2. **ゲシュタルト原則スコアリング**
+   - `scripts/score_gestalt_principles.py` でLLaVA 7Bを利用した自動スコア化
+   - スコアを特徴量CSVへ統合し、解釈性を強化
+3. **shap-class 連携教材**
+   - `notebooks/prepare_data_for_shap_class.ipynb` でtrain/validation CSVを生成
+   - そのまま `shap-class` リポジトリに投入して授業用の結果を再現可能
 
 ### 実装済み機能（✓）
 
-- **Metropolitan Museum API統合**: 59項目の全メタデータ取得
-- **ハイブリッドデータ収集システム**: CSVとAPIを組み合わせた大規模データ収集
-  - チェックポイント機能（中断・再開可能）
-  - 品質管理機能（QAレポート生成）
-  - エラーハンドリングとリトライ機能
-- **画像からデータセット作成**: 画像ファイル名から自動的にデータセットを生成
-- **探索的データ分析（EDA）**: 包括的なJupyter Notebook環境
-  - 共通ユーティリティ関数によるコード再利用
-  - JSONデータの自動解析
-  - 各種可視化と統計分析
-- **shap-class統合**: データ準備ノートブックとJupyterカーネルセットアップ
-  - WikiArt_VLMデータセットの前処理
-  - train/validation分割とデータ保存
-  - shap-classリポジトリとの統合
-  - Random Forestモデルの訓練と評価
-- **色彩特徴量抽出**: 完全実装
-- **ランダムフォレスト分類器**: 実装済み
-- **SHAP説明可能性**: summary_plot実装済み
-- **モジュラー設計と設定ファイル**: 完全実装
-- **効率的なデータ収集システム**: メタデータと画像の分離
-- **プロジェクト構造の最適化**: 
-  - スクリプトの整理（`scripts/`ディレクトリ）
-  - ドキュメントの整理（`docs/`ディレクトリ）
-  - ログの整理（`logs/`ディレクトリ）
-  - 共通機能の抽出（`src/utils/`）
+- WikiArt_VLMデータローダーおよび特徴量抽出
+- Gestaltスコア統合と再利用可能な特徴量CSV
+- RandomForest + GridSearchCV + Stratified split
+- SHAP summary / dependence plot / feature importance
+- shap-class用データ出力ノートブック
+- Config / Logger / TimestampManager などの共通基盤
 
-### 部分実装機能（△）
+### 部分実装・未実装
 
-- **構図特徴量**: 基本実装済み、詳細は未実装
-- **データ量**: 小規模データでの動作確認のみ
-- **性能要件**: 大規模データでの性能測定は未実施
+- 構図特徴量の細分化（3×3領域解析など）は未着手
+- 誤分類作品ビューア / インタラクティブレポートは未実装
+- 多クラス（様式ごと）や回帰タスクは今後の検討項目
 
-### 未実装機能（×）
+### 今後の改善予定
 
-- waterfall plot/force plot（複雑性のため簡略化）
-- 誤分類作品の分析表示
-- 多クラス分類（バロック、印象派、キュビズム等）
-- 特徴量分布の可視化
-
-### 今後の改善点
-
-1. **構図特徴量の完全実装**: より詳細な分析機能の追加
-2. **可視化機能の拡充**: より直感的な説明可能性の向上
-3. **多クラス分類の実装**: バロック、印象派、キュビズムなどの様式分類
-4. **特徴量分布の可視化**: より詳細なデータ分析
-5. **高解像度画像の検討**: 現在`primaryImageSmall`を使用、必要に応じて高解像度画像の取得を検討
-
-### データセットについて
-
-プロジェクトでは以下のデータセットが利用可能です：
-
-1. **`paintings_complete_dataset.csv`**: 
-   - APIから取得した完全な絵画データセット
-   - JSON形式の詳細情報（tags, constituents, measurements）を含む
-
-2. **`dataset_from_images.csv`**: 
-   - `paintings_images`ディレクトリの画像ファイル名から自動生成
-   - MetObjects.csvから対応するデータを抽出
-   - ダウンロード済み画像に対応するデータのみを含む
-
-3. **`MetObjects.csv`**: 
-   - Metropolitan Museumの全作品データ（484,956件）
-   - 大容量ファイルのため、`.gitignore`に含まれています
-
-### 要件定義からの変更点
-
-- **画像解像度**: 高解像度JPEG → `primaryImageSmall`（効率性のため）
-- **SHAP可視化**: waterfall plot/force plot → summary_plot（簡略化）
-- **データ収集戦略**: 単一API → ハイブリッド（CSV+API）システム
-- **プロジェクト構造**: フラット構造 → 整理されたディレクトリ構造
+1. ペア単位でのデータ分割（Original/Generatedが異なるfoldに入らないよう調整）
+2. 追加の説明可視化（force plot、誤分類サマリ）  
+3. WikiArt_VLM以外の生成モデルを追加して汎化性能を確認
 
 ## 参考資料
 
-- [Metropolitan Museum API Documentation](https://metmuseum.github.io/)
+- [WikiArt_VLM (HuggingFace)](https://huggingface.co/datasets/keremberke/wikiart-vlm-dataset)
 - [SHAP Documentation](https://shap.readthedocs.io/)
 - [scikit-learn Documentation](https://scikit-learn.org/)
 
@@ -495,11 +388,10 @@ logs/                            # ログファイル
 
 プロジェクトの詳細な情報は`docs/`ディレクトリを参照してください：
 
-- [実装状況詳細レポート](docs/implementation_status_report.md)
-- [プロジェクト状況](docs/project_status_20251029.md)
-- [要件定義](docs/requirements_specification.md)
-- [開発履歴](docs/cursor_chat_history.md)
-- [CSV分析結果](docs/painting_analysis_results.txt)
+- [実装状況詳細レポート](docs/reports/implementation_status_report.md)
+- [演習・評価レポート（HTML版）](docs/reports/exercise_report.html)
+- [特徴量定義ガイド](docs/guides/feature_columns_definition.md)
+- [開発履歴](docs/history/cursor_chat_history.md)
 
 ## トラブルシューティング
 
@@ -517,15 +409,9 @@ cat logs/project.log
 
 ### データセットの問題
 
-データセットが見つからない場合は、以下のスクリプトを実行してください：
-
-```bash
-# 画像からデータセットを作成
-python scripts/create_dataset_from_images.py
-
-# フィルタリング結果を確認
-python scripts/verify_filtering_results.py
-```
+- `data/external/WikiArt_VLM-main/` が存在するか確認してください（git submodule もしくはZIP展開が必要です）。
+- 生成モデル別ディレクトリ（`images/Original`, `images/Stable-Diffusion` など）が揃っているか確認してください。
+- `scripts/train_wikiart_vlm.py --mode features ...` を再実行すると不足している特徴量CSVが再生成されます。
 
 ### Jupyter Notebookの問題
 

@@ -505,8 +505,8 @@ HSV色空間のVチャネル（明度）の分布を統計的に分析した特�
 - **定義**: 画像ファイルのパス
 - **データ型**: `object` (string)
 - **形式**: 
-  - Original画像: `"data/WikiArt_VLM-main/images/Original/{image_name}"`
-  - Generated画像: `"data/WikiArt_VLM-main/images/Stable-Diffusion/{image_name}"`
+  - Original画像: `"data/external/WikiArt_VLM-main/images/Original/{image_name}"`
+  - Generated画像: `"data/external/WikiArt_VLM-main/images/Stable-Diffusion/{image_name}"`
 - **ユニーク数**: 17,328
 - **解釈**: 画像ファイルの相対パス
 

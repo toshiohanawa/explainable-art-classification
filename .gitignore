@@ -101,18 +101,19 @@ dmypy.json
 # プロジェクト固有のファイル
 
 # データファイル（大容量のため）
-data/raw_images/
-# data/raw_data/  # 生データディレクトリはコミット対象
+data/raw/raw_images/
+# data/raw/raw_data/  # 生データディレクトリはコミット対象
 data/analysis_*/
+data/experiments/analysis_*/
 
 # ハイブリッドデータ収集の一時ファイル
-data/raw_data/checkpoint.json
-data/raw_data/failed_ids.json
-data/raw_data/api_data.json
-data/raw_data/session_cookies.pkl
+data/raw/raw_data/checkpoint.json
+data/raw/raw_data/failed_ids.json
+data/raw/raw_data/api_data.json
+data/raw/raw_data/session_cookies.pkl
 
 # 大容量CSVファイル（GitHub制限により除外）
-data/raw_data/MetObjects.csv
+data/raw/raw_data/MetObjects.csv
 
 # ログファイル
 logs/

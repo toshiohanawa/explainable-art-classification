@@ -161,7 +161,7 @@ gestalt_scoring:
 ```bash
 python scripts/score_gestalt_principles.py \
     --mode single \
-    --image data/WikiArt_VLM-main/images/Original/0.jpg \
+    --image data/external/WikiArt_VLM-main/images/Original/0.jpg \
     --model llava:13b
 ```
 

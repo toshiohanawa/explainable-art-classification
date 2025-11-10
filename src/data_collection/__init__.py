@@ -1,6 +1,6 @@
 """
 データ収集モジュール
-Metropolitan Museum APIからのデータ取得機能とWikiArt_VLMデータセットローダーを提供
+（Legacy）美術館API向けクライアントと、現行のWikiArt_VLMデータセットローダーを提供
 """
 
 from .met_api_client import MetAPIClient

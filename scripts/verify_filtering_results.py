@@ -11,7 +11,7 @@ def verify_filtering_results():
     print("=== フィルタリング結果確認 ===\n")
     
     # データファイル確認
-    data_file = Path("data/filtered_data/paintings_complete_dataset.csv")
+    data_file = Path("data/curated/filtered_data/paintings_complete_dataset.csv")
     if data_file.exists():
         df = pd.read_csv(data_file, encoding='utf-8')
         print(f"📊 データファイル: {len(df):,}件")
@@ -34,7 +34,7 @@ def verify_filtering_results():
         print("❌ データファイルが見つかりません")
     
     # 画像ファイル確認
-    images_dir = Path("data/filtered_data/paintings_images")
+    images_dir = Path("data/curated/filtered_data/paintings_images")
     if images_dir.exists():
         image_files = [f for f in images_dir.iterdir() if f.is_file()]
         print(f"\n🖼️  画像ファイル: {len(image_files):,}件")
@@ -42,7 +42,7 @@ def verify_filtering_results():
         print("\n❌ 画像ディレクトリが見つかりません")
     
     # バックアップ確認
-    backup_file = Path("data/filtered_data/paintings_complete_dataset_backup.csv")
+    backup_file = Path("data/curated/filtered_data/paintings_complete_dataset_backup.csv")
     if backup_file.exists():
         print(f"\n💾 バックアップファイル: 存在します")
         df_backup = pd.read_csv(backup_file, encoding='utf-8')

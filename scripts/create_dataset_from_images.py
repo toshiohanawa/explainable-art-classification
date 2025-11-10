@@ -130,9 +130,9 @@ def main():
     logger.info("=" * 60)
     
     # パス設定
-    images_dir = Path("data/filtered_data/paintings_images")
-    raw_csv_path = Path("data/raw_data/MetObjects.csv")
-    output_path = Path("data/filtered_data/dataset_from_images.csv")
+    images_dir = Path("data/curated/filtered_data/paintings_images")
+    raw_csv_path = Path("data/raw/raw_data/MetObjects.csv")
+    output_path = Path("data/curated/filtered_data/dataset_from_images.csv")
     
     # 画像ファイルからObject_IDを抽出
     logger.info("画像ファイル名からObject_IDを抽出中...")

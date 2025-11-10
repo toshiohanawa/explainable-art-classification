@@ -38,8 +38,13 @@ def main():
     config = config_manager.get_config()
     
     # StatusChecker初期化
-    data_dir = config['data']['output_dir']
-    checker = StatusChecker(data_dir=data_dir)
+    data_config = config['data']
+    checker = StatusChecker(
+        data_dir=data_config['output_dir'],
+        raw_data_dir=data_config.get('raw_data_dir'),
+        filtered_data_dir=data_config.get('filtered_data_dir'),
+        paintings_images_subdir=data_config.get('paintings_images_dir', 'paintings_images')
+    )
     
     # チェックタイプに応じて実行
     if args.type in ['collection', 'all']:
@@ -73,4 +78,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

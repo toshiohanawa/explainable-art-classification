@@ -1,6 +1,6 @@
 """
-Metropolitan Museum API クライアント
-APIからの作品データと画像の取得を行う
+（Legacy）美術館APIクライアント
+APIからの作品データと画像の取得を行う（現行パイプラインでは未使用）
 """
 
 import requests
@@ -17,7 +17,7 @@ from ..utils.timestamp_manager import TimestampManager
 
 
 class MetAPIClient:
-    """Metropolitan Museum API クライアント"""
+    """（Legacy）美術館APIクライアント"""
     
     def __init__(self, config: Dict[str, Any]):
         """
@@ -36,7 +36,8 @@ class MetAPIClient:
         # 生データは固定ディレクトリに保存
         self.output_dir = Path(self.data_config['output_dir'])
         self.images_dir = self.output_dir / self.data_config['images_dir']
-        self.raw_data_dir = self.output_dir / 'raw_data'
+        raw_data_dir_config = self.data_config.get('raw_data_dir')
+        self.raw_data_dir = Path(raw_data_dir_config) if raw_data_dir_config else self.output_dir / 'raw_data'
         
         # ディレクトリ作成
         self.output_dir.mkdir(parents=True, exist_ok=True)
