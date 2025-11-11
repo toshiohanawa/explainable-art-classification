@@ -148,6 +148,10 @@ def main():
                         help="使用する生成モデル名（ファイル自動検出に利用）")
     parser.add_argument("--top-k", type=int, default=6,
                         help="分布図および棒グラフに表示する特徴量数")
+    parser.add_argument("--use-shap-importance", action="store_true",
+                        help="SHAP特徴量重要度ファイルを使用して特徴量を選択（未指定時は平均値の差の絶対値で選択）")
+    parser.add_argument("--shap-importance-file", type=str, default=None,
+                        help="SHAP特徴量重要度CSVのパス（未指定時はlatestディレクトリから自動検出）")
     args = parser.parse_args()
 
     config = ConfigManager().get_config()
@@ -168,7 +172,26 @@ def main():
         raise ValueError("特徴量ファイルに'label'カラムが必要です。")
 
     summary_df = compute_feature_summary(df, exclude=["image_id"])
-    top_features = summary_df.head(args.top_k)["feature"].tolist()
+    
+    # SHAP特徴量重要度を使用する場合
+    if args.use_shap_importance:
+        if args.shap_importance_file:
+            shap_path = Path(args.shap_importance_file)
+        else:
+            shap_dir = timestamp_manager.get_shap_explanations_dir()
+            shap_path = shap_dir / "feature_importance_shap.csv"
+        
+        if not shap_path.exists():
+            raise FileNotFoundError(f"SHAP特徴量重要度ファイルが見つかりません: {shap_path}")
+        
+        shap_df = pd.read_csv(shap_path)
+        top_features = shap_df.head(args.top_k)["feature"].tolist()
+        print(f"Using SHAP importance to select top {args.top_k} features")
+        print(f"Selected features: {top_features}")
+    else:
+        top_features = summary_df.head(args.top_k)["feature"].tolist()
+        print(f"Using mean difference to select top {args.top_k} features")
+        print(f"Selected features: {top_features}")
 
     results_dir = timestamp_manager.get_results_dir()
     viz_dir = timestamp_manager.get_visualizations_dir()
