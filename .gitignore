@@ -248,6 +248,8 @@ outputs/
 # レポート（生成されたもの）
 reports/
 *.report
+# docs/reports/は例外としてコミット対象にする
+!docs/reports/
 
 # 統計情報
 stats/

@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>演習課題レポート：本物のアート vs AI生成アートの分類</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .slide-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .slide {
+            background: white;
+            margin: 20px 0;
+            padding: 60px 80px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            page-break-after: always;
+            min-height: 800px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide:last-child {
+            page-break-after: auto;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            border-bottom: 4px solid #3498db;
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 2em;
+            color: #34495e;
+            margin-bottom: 25px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            font-size: 1.5em;
+            color: #34495e;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+
+        .slide-number {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.2em;
+            color: #7f8c8d;
+            font-weight: bold;
+        }
+
+        .slide {
+            position: relative;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .metric-box {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .metric-box strong {
+            color: #2980b9;
+            font-size: 1.1em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .image-container {
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .image-caption {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .feature-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 3px solid #3498db;
+        }
+
+        .feature-item strong {
+            color: #2980b9;
+        }
+
+        @media print {
+            .slide {
+                page-break-after: always;
+                margin: 0;
+                padding: 40px;
+            }
+            
+            body {
+                background: white;
+            }
+        }
+
+        .summary-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .summary-box h3 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <!-- スライド1: 問題設定 -->
+        <div class="slide">
+            <div class="slide-number">1 / 5</div>
+            <h1>問題設定</h1>
+            
+            <h2>テーマ</h2>
+            <p style="font-size: 1.2em; margin-bottom: 20px;">
+                本物のアート（Authentic Art）とAI生成アート（AI-Generated Art）を分類する教師あり学習モデルを構築し、SHAPを用いてモデルの解釈を行う。
+            </p>
+
+            <h2>目的</h2>
+            <ul style="font-size: 1.1em;">
+                <li>WikiArtデータセットの印象派絵画（本物）とStable-Diffusionで生成された画像（フェイク）を分類する</li>
+                <li>ランダムフォレスト分類器を用いて高精度な分類モデルを構築する</li>
+                <li>SHAPを用いて、モデルがどの特徴量に基づいて分類を行っているかを解釈する</li>
+            </ul>
+
+            <h2>データセット概要</h2>
+            
+            <h3 style="font-size: 1.2em; margin-top: 20px; margin-bottom: 15px; color: #2980b9;">WikiArtデータセットについて</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;"><strong>データセットの出典</strong>: <a href="https://www.wikiart.org/" target="_blank">WikiArt.org</a></p>
+                <p style="margin-bottom: 10px;"><strong>データセット規模</strong>:</p>
+                <ul style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>総作品数</strong>: 81,444件の視覚芸術作品</li>
+                    <li><strong>アーティスト数</strong>: 129クラス（「Unknown Artist」を含む）</li>
+                    <li><strong>ジャンル</strong>: 11クラス（「Unknown Genre」を含む）
+                        <ul style="margin-top: 5px;">
+                            <li>歴史画、肖像画、風景画、静物画など</li>
+                            <li>17世紀のヨーロッパ文化で確立された古典的な階層構造</li>
+                        </ul>
+                    </li>
+                    <li><strong>スタイル</strong>: 27クラス
+                        <ul style="margin-top: 5px;">
+                            <li>印象派、写実主義、抽象表現主義など</li>
+                            <li>芸術運動や流派に対応</li>
+                        </ul>
+                    </li>
+                </ul>
+                <p style="margin-top: 10px; font-size: 0.9em; color: #7f8c8d;">
+                    <strong>注意</strong>: WikiArtデータセットは非営利の研究目的でのみ使用可能です。
+                    画像はWikiArt.orgから取得され、使用にはWikiArt.orgの利用規約に従う必要があります。
+                </p>
+            </div>
+
+            <h3 style="font-size: 1.2em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">WikiArt_VLMデータセットの構成</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;"><strong>データセットの作成方法</strong>:</p>
+                <ol style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>元データの選択</strong>: WikiArtデータセットから「Unknown Artist」を除いた作品を選択</li>
+                    <li><strong>プロンプト生成</strong>: GPT-4.1-miniを使用して、各作品の説明文（プロンプト）を自動生成
+                        <ul style="margin-top: 5px;">
+                            <li>プロンプトファイル: <code>All_gpt4.1-mini_prompt.xlsx</code></li>
+                            <li>各作品に対して、画像生成AIが理解できるテキスト記述を作成</li>
+                        </ul>
+                    </li>
+                    <li><strong>AI画像生成</strong>: 生成されたプロンプトを入力として、以下のモデルで画像を生成
+                        <ul style="margin-top: 5px;">
+                            <li><strong>Stable-Diffusion</strong>: 本研究で使用</li>
+                            <li>FLUX、F-Lite（本研究では未使用）</li>
+                        </ul>
+                    </li>
+                    <li><strong>ペアの作成</strong>: 元のWikiArt作品と生成画像を1対1のペアとして対応付け</li>
+                </ol>
+                <p style="margin-top: 10px; font-style: italic; color: #555;">
+                    <strong>なぜこの方法が有効か</strong>: 同じプロンプトから生成された画像ペアを使用することで、
+                    構図や主題が似ているが、制作プロセス（手描き vs AI生成）が異なる画像を比較できます。
+                    これにより、本物とフェイクを区別する本質的な特徴を抽出しやすくなります。
+                </p>
+            </div>
+
+            <h3 style="font-size: 1.2em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">データセット作成のフロー（具体例）</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 15px;">以下に、実際のデータを使用したデータセット作成のフローを示します。</p>
+                
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: #2980b9; margin-top: 0;">例1: Image ID 35523（Edgar Degas）</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Original/35523.jpg" alt="本物の絵画" style="width: 100%; border: 2px solid #3498db; border-radius: 4px;">
+                            <div style="text-align: center; font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>ステップ1: 本物の絵画</strong><br>
+                                Edgar Degas作
+                            </div>
+                        </div>
+                        <div>
+                            <p style="margin-top: 0;"><strong>ステップ2: GPT-4.1-miniによるプロンプト生成</strong></p>
+                            <div style="background: #fff; padding: 10px; border-left: 3px solid #f39c12; border-radius: 4px; font-size: 0.9em;">
+                                <em>"The image depicts a detailed, contemplative male portrait in three-quarter view, created using delicate pencil sketching techniques on textured paper."</em>
+                            </div>
+                            <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                                このプロンプトは、本物の絵画の視覚的特徴（構図、技法、質感）をテキストで記述したものです。
+                            </p>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin: 15px 0;">
+                        <span style="font-size: 1.5em; color: #e74c3c;">↓</span>
+                        <div style="font-size: 0.9em; color: #555; margin-top: 5px;">Stable-Diffusionで画像生成</div>
+                    </div>
+                    <div>
+                        <img src="../../data/external/WikiArt_VLM-main/images/Stable-Diffusion/35523.jpg" alt="AI生成画像" style="width: 100%; max-width: 400px; border: 2px solid #e74c3c; border-radius: 4px; display: block; margin: 0 auto;">
+                        <div style="text-align: center; font-size: 0.85em; color: #555; margin-top: 5px;">
+                            <strong>ステップ3: AI生成画像</strong><br>
+                            同じプロンプトから生成されたフェイク画像
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 10px; background: #e8f4f8; border-radius: 4px;">
+                        <strong>ステップ4: ペアの作成</strong><br>
+                        <span style="font-size: 0.9em;">本物（Image ID: 35523, ラベル: 0）とフェイク（Image ID: 35523_generated, ラベル: 1）を1対1のペアとして対応付け</span>
+                    </div>
+                </div>
+
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="color: #2980b9; margin-top: 0;">例2: Image ID 35500（Eugene Boudin）</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Original/35500.jpg" alt="本物の絵画" style="width: 100%; border: 2px solid #3498db; border-radius: 4px;">
+                            <div style="text-align: center; font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>ステップ1: 本物の絵画</strong><br>
+                                Eugene Boudin作
+                            </div>
+                        </div>
+                        <div>
+                            <p style="margin-top: 0;"><strong>ステップ2: GPT-4.1-miniによるプロンプト生成</strong></p>
+                            <div style="background: #fff; padding: 10px; border-left: 3px solid #f39c12; border-radius: 4px; font-size: 0.9em;">
+                                <em>"The image depicts a group of people dressed in 19th-century attire gathered on a beach under umbrellas, created using an impressionist oil painting technique with visible brushstrokes."</em>
+                            </div>
+                            <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                                このプロンプトは、印象派の技法（筆触の可視化）や主題（19世紀のビーチシーン）を詳細に記述しています。
+                            </p>
+                        </div>
+                    </div>
+                    <div style="text-align: center; margin: 15px 0;">
+                        <span style="font-size: 1.5em; color: #e74c3c;">↓</span>
+                        <div style="font-size: 0.9em; color: #555; margin-top: 5px;">Stable-Diffusionで画像生成</div>
+                    </div>
+                    <div>
+                        <img src="../../data/external/WikiArt_VLM-main/images/Stable-Diffusion/35500.jpg" alt="AI生成画像" style="width: 100%; max-width: 400px; border: 2px solid #e74c3c; border-radius: 4px; display: block; margin: 0 auto;">
+                        <div style="text-align: center; font-size: 0.85em; color: #555; margin-top: 5px;">
+                            <strong>ステップ3: AI生成画像</strong><br>
+                            同じプロンプトから生成されたフェイク画像
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 10px; background: #e8f4f8; border-radius: 4px;">
+                        <strong>ステップ4: ペアの作成</strong><br>
+                        <span style="font-size: 0.9em;">本物（Image ID: 35500, ラベル: 0）とフェイク（Image ID: 35500_generated, ラベル: 1）を1対1のペアとして対応付け</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #fff9e6; border-left: 4px solid #f39c12; border-radius: 4px;">
+                    <h4 style="color: #d68910; margin-top: 0;">データセット作成のポイント</h4>
+                    <ul style="margin-left: 20px; margin-bottom: 0;">
+                        <li><strong>同じプロンプトを使用</strong>: 本物とフェイクが同じ主題・構図を共有することで、制作プロセスの違い（手描き vs AI生成）に焦点を当てられます</li>
+                        <li><strong>1対1の対応</strong>: 各本物画像に対して1つのフェイク画像を生成し、ペアとして対応付けます</li>
+                        <li><strong>ラベルの付与</strong>: 本物画像にラベル0、フェイク画像にラベル1を付与し、教師あり学習のデータセットとして使用します</li>
+                        <li><strong>データの一貫性</strong>: 全39,530ペアに対して同じプロセスを適用し、一貫性のあるデータセットを構築します</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1.2em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">本研究で使用したデータ</h3>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <strong>本物（Authentic）</strong><br>
+                    WikiArtの印象派絵画<br>
+                    <span class="highlight">8,664件</span>
+                </div>
+                <div class="feature-item">
+                    <strong>フェイク（Fake）</strong><br>
+                    Stable-Diffusionで生成された画像<br>
+                    <span class="highlight">8,664件</span>
+                </div>
+            </div>
+            <div class="metric-box" style="margin-top: 20px;">
+                <p style="margin-bottom: 10px;"><strong>データの特徴</strong>:</p>
+                <ul style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>合計</strong>: 17,328件（ペア数: 8,664ペア）</li>
+                    <li><strong>クラス分布</strong>: 完全にバランス（50%:50%）</li>
+                    <li><strong>印象派の選択理由</strong>: 
+                        <ul style="margin-top: 5px;">
+                            <li>印象派は明確なスタイル特徴を持つ（筆触、色彩、構図）</li>
+                            <li>AI生成画像との違いが明確に現れやすい</li>
+                            <li>教育的な観点から、特徴量の解釈がしやすい</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="metric-box" style="margin-top: 15px; background:#fdecea; border-left-color:#e74c3c;">
+                <strong>補足:</strong> 初期のMetropolitan Museum APIベースの収集コードは教材の参考実装として残っていますが、現行カリキュラムでは
+                <span class="highlight">WikiArt_VLM（Original vs Generated）</span>のみを学習・評価対象としています。
+            </div>
+        </div>
+
+        <!-- スライド2: データの作成方法 -->
+        <div class="slide">
+            <div class="slide-number">2 / 5</div>
+            <h1>データの作成方法</h1>
+            
+            <h2>説明変数（特徴量）の設計</h2>
+            <p style="font-size: 1.05em; margin-bottom: 20px;">
+                画像から<strong>合計44カラムの数値特徴量</strong>を抽出しました。
+                本物の絵画とAI生成画像を区別するために、<strong>色彩・テクスチャ・エッジ・ゲシュタルト原則</strong>の4つの観点から特徴量を設計しています。
+            </p>
+            
+            <div class="image-container" style="margin-bottom: 25px;">
+                <img src="../../data/artifacts/visualizations/latest/bias_feature_distributions.png" alt="特徴量分布比較" style="width: 100%; border: 2px solid #ddd;">
+                <div class="image-caption">図: 主要特徴量の分布比較（KDE, Authentic vs Fake）</div>
+                <p style="font-size: 0.9em; color: #555; margin-top: 10px;">
+                    この図は、本物とフェイクの画像から抽出された主要な特徴量の分布を比較したものです。
+                    各特徴量について、本物（青）とフェイク（赤）の分布がどのように異なるかを視覚的に確認できます。
+                    分布の違いが大きい特徴量ほど、分類に有効な特徴量であることがわかります。
+                </p>
+            </div>
+
+            <h3 style="font-size: 1.3em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">1. 色彩特徴量（19カラム）</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;"><strong>目的</strong>: 画像の色の使い方を数値化する</p>
+                <p style="margin-bottom: 10px;"><strong>処理手順</strong>:</p>
+                <ol style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>HSV色空間への変換</strong>: RGB画像をHSV（色相・彩度・明度）に変換
+                        <ul style="margin-top: 5px;">
+                            <li>理由: 人間の色の知覚に近く、解釈しやすい</li>
+                            <li>例: 「赤っぽい」「鮮やか」「明るい」など直感的に理解できる</li>
+                        </ul>
+                    </li>
+                    <li><strong>基本統計量の計算</strong>: 色相・彩度・明度の平均値と標準偏差（6カラム）
+                        <ul style="margin-top: 5px;">
+                            <li><code>mean_hue</code>: 画像全体の色相の平均（0-179度）</li>
+                            <li><code>saturation_std</code>: 彩度のばらつき（鮮やかな部分とくすんだ部分の混在度）</li>
+                        </ul>
+                    </li>
+                    <li><strong>支配色分析</strong>: K-meansクラスタリング（k=5）で主要な5色を抽出し、HSV統計量を計算（9カラム）
+                        <ul style="margin-top: 5px;">
+                            <li>理由: RGB値を直接使うと15カラムになるが、HSV統計量なら9カラムで解釈性も高い</li>
+                        </ul>
+                    </li>
+                    <li><strong>明度分布の分析</strong>: 歪度・尖度・エントロピーを計算（3カラム）
+                        <ul style="margin-top: 5px;">
+                            <li>明るい部分と暗い部分の分布の特徴を捉える</li>
+                        </ul>
+                    </li>
+                </ol>
+                <p style="margin-top: 10px; font-style: italic; color: #555;">
+                    <strong>なぜ有効か</strong>: 本物の絵画は画家が意図的に色を調整するため、色彩の分布に特徴的なパターンが現れます。
+                    AI生成画像は学習データから「美しい色の組み合わせ」を学習するため、均質化されやすい傾向があります。
+                </p>
+                
+                <div class="image-container" style="margin-top: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Original/35523.jpg" alt="本物の絵画サンプル（色彩多様性が高い）" style="width: 100%; border: 2px solid #3498db;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">本物の絵画（Image ID: 35523）</div>
+                            <div class="image-caption" style="text-align: center; font-size: 0.9em; color: #555; margin-top: 3px; font-style: italic;">Edgar Degas</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>color_diversity: 6,894.75</strong><br>
+                                画家が意図的に色を混ぜ合わせ、微妙な色の変化を作り出しています。
+                                場所によって異なる色相が使われ、色彩の多様性が非常に高いことがわかります。
+                            </p>
+                        </div>
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Stable-Diffusion/35523.jpg" alt="AI生成画像サンプル（色彩多様性が低い）" style="width: 100%; border: 2px solid #e74c3c;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">AI生成画像（Image ID: 35523_generated）</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>color_diversity: 100.90</strong><br>
+                                生成モデルが学習した「一般的に美しい色の組み合わせ」により、
+                                色が均質化され、特定の色相範囲に集中していることがわかります。
+                            </p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.9em; color: #7f8c8d; font-style: italic; margin-top: 10px;">
+                        <strong>観察ポイント</strong>: 同じImage ID（35523）の本物とフェイクを比較すると、左の本物の絵画では様々な色が混在し、
+                        色彩の多様性が非常に高いことが視覚的にも確認できます。一方、右のAI生成画像では、色が均質化され、
+                        微妙な色の変化が少なくなっています。この違いが<code>color_diversity</code>の値として明確に数値化されています（差: 6,793.84）。
+                    </p>
+                </div>
+                
+                <div class="metric-box" style="margin-top: 20px; background: #fff9e6; border-left-color: #f39c12;">
+                    <h4 style="color: #d68910; margin-top: 0;">具体的なデータ例：色彩多様性の違い</h4>
+                    <p style="margin-bottom: 10px;">上記の画像に対応する実際のデータから、色彩多様性（<code>color_diversity</code>）の違いが明確に現れていることを示します。</p>
+                    <table style="width: 100%; margin-top: 10px; font-size: 0.9em;">
+                        <thead>
+                            <tr>
+                                <th>画像ID</th>
+                                <th>ラベル</th>
+                                <th>color_diversity</th>
+                                <th>mean_hue</th>
+                                <th>saturation_std</th>
+                                <th>mean_saturation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #e8f4f8;">
+                                <td><strong>35523</strong></td>
+                                <td>本物</td>
+                                <td style="color: #2980b9; font-weight: bold;">6,894.75</td>
+                                <td>100.81</td>
+                                <td>8.16</td>
+                                <td>15.15</td>
+                            </tr>
+                            <tr style="background-color: #fdecea;">
+                                <td><strong>35523_generated</strong></td>
+                                <td>フェイク</td>
+                                <td style="color: #e74c3c; font-weight: bold;">100.90</td>
+                                <td>19.48</td>
+                                <td>8.24</td>
+                                <td>44.32</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                        <strong>解釈</strong>: 本物の画像（ID: 35523）では、<code>color_diversity</code>が6,894.75と非常に高く、
+                        色相の分散が大きいことがわかります。これは、画家が様々な色を混ぜ合わせ、場所によって異なる色相を
+                        使用していることを示しています。一方、同じ画像IDのフェイク画像（ID: 35523_generated）では、
+                        <code>color_diversity</code>が100.90と非常に低く、色が均質化されていることがわかります。
+                        この差は約68倍にもなり、同じ画像を基に生成されたにもかかわらず、色彩の多様性に大きな違いが生じています。
+                    </p>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1.3em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">2. テクスチャ特徴量（10カラム）</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;"><strong>目的</strong>: 画像の質感（テクスチャ）を数値化する</p>
+                <p style="margin-bottom: 10px;"><strong>処理手順</strong>:</p>
+                <ol style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>GLCM特徴量（5カラム）</strong>: グレースケール画像の画素間の共起関係を分析
+                        <ul style="margin-top: 5px;">
+                            <li><code>texture_glcm_contrast</code>: 局所的な明度の変化（値が大きい=質感が粗い）</li>
+                            <li><code>texture_glcm_homogeneity</code>: 画素間の類似度（値が大きい=質感が均一）</li>
+                            <li>4方向（0, 45, 90, 135度）の平均を取ることで、方向に依存しない特徴量を抽出</li>
+                        </ul>
+                    </li>
+                    <li><strong>LBP特徴量（5カラム）</strong>: 局所的なテクスチャパターンを符号化
+                        <ul style="margin-top: 5px;">
+                            <li><code>texture_lbp_std</code>: LBP値の標準偏差（質感の多様性）</li>
+                            <li>ヒストグラムの統計量（エントロピー・歪度・尖度）も計算</li>
+                            <li>理由: ビン特徴量を使うと10カラムになるが、統計量なら3カラムで解釈性も高い</li>
+                        </ul>
+                    </li>
+                </ol>
+                <p style="margin-top: 10px; font-style: italic; color: #555;">
+                    <strong>なぜ有効か</strong>: 本物の絵画は筆触や絵の具の厚みにより、場所によって異なる質感パターンが生まれます。
+                    AI生成画像は質感が均質化されやすく、この違いが明確に現れます。
+                </p>
+                
+                <div class="image-container" style="margin-top: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Original/38494.jpg" alt="本物の絵画の質感（テクスチャコントラストが高い）" style="width: 100%; border: 2px solid #3498db;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">本物の絵画（Image ID: 38494）</div>
+                            <div class="image-caption" style="text-align: center; font-size: 0.9em; color: #555; margin-top: 3px; font-style: italic;">Camille Pissarro</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>texture_glcm_contrast: 9,861.55</strong><br>
+                                絵の具の厚み、筆の跡、キャンバスの織り目などが、画像の質感に複雑な変化をもたらします。
+                                明るい部分と暗い部分の境界がはっきりしており、触ったら質感が感じられるような立体感があります。
+                            </p>
+                        </div>
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Stable-Diffusion/38494.jpg" alt="AI生成画像の質感（テクスチャコントラストが低い）" style="width: 100%; border: 2px solid #e74c3c;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">AI生成画像（Image ID: 38494_generated）</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>texture_glcm_contrast: 509.50</strong><br>
+                                生成モデルは「滑らかで均一な表面」を生成する傾向があります。
+                                質感のコントラストが低く、どこを見ても同じような滑らかさになっています。
+                            </p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.9em; color: #7f8c8d; font-style: italic; margin-top: 10px;">
+                        <strong>観察ポイント</strong>: 同じImage ID（38494）の本物とフェイクを比較すると、左の本物の絵画は「手織りの布」のように、
+                        織り目や質感の変化が視覚的にも確認できます。一方、右のAI生成画像は「合成繊維の布」のように、
+                        どこも同じような滑らかな質感になっています。この違いが<code>texture_glcm_contrast</code>や
+                        <code>texture_lbp_std</code>などの特徴量として数値化されています（差: 9,352.04）。
+                    </p>
+                </div>
+                
+                <div class="metric-box" style="margin-top: 20px; background: #fff9e6; border-left-color: #f39c12;">
+                    <h4 style="color: #d68910; margin-top: 0;">具体的なデータ例：テクスチャコントラストの違い</h4>
+                    <p style="margin-bottom: 10px;">上記の画像に対応する実際のデータから、テクスチャコントラスト（<code>texture_glcm_contrast</code>）の違いが明確に現れていることを示します。</p>
+                    <table style="width: 100%; margin-top: 10px; font-size: 0.9em;">
+                        <thead>
+                            <tr>
+                                <th>画像ID</th>
+                                <th>ラベル</th>
+                                <th>texture_glcm_contrast</th>
+                                <th>texture_lbp_std</th>
+                                <th>texture_glcm_homogeneity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #e8f4f8;">
+                                <td><strong>38494</strong></td>
+                                <td>本物</td>
+                                <td style="color: #2980b9; font-weight: bold;">9,861.55</td>
+                                <td>3.45</td>
+                                <td>0.061</td>
+                            </tr>
+                            <tr style="background-color: #fdecea;">
+                                <td><strong>38494_generated</strong></td>
+                                <td>フェイク</td>
+                                <td style="color: #e74c3c; font-weight: bold;">509.50</td>
+                                <td>2.93</td>
+                                <td>0.162</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                        <strong>解釈</strong>: 本物の画像（ID: 38494）では、<code>texture_glcm_contrast</code>が9,861.55と非常に高く、
+                        局所的な明度の変化が大きいことがわかります。これは、絵の具の厚みや筆の跡により、質感が粗く、
+                        コントラストが高いことを示しています。一方、同じ画像IDのフェイク画像（ID: 38494_generated）では、
+                        <code>texture_glcm_contrast</code>が509.50と非常に低く、質感が滑らかで均一であることがわかります。
+                        この差は約19倍にもなります。また、<code>texture_glcm_homogeneity</code>（均質性）も、
+                        本物は0.061（不均一）に対し、フェイクは0.162（より均一）と大きな違いがあります。
+                    </p>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1.3em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">3. エッジ特徴量（9カラム）</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;"><strong>目的</strong>: 画像の輪郭線（エッジ）の特徴を数値化する</p>
+                <p style="margin-bottom: 10px;"><strong>処理手順</strong>:</p>
+                <ol style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>Cannyエッジ検出</strong>: 画像から輪郭線を抽出
+                        <ul style="margin-top: 5px;">
+                            <li>閾値: 50（弱いエッジ）と150（強いエッジ）</li>
+                        </ul>
+                    </li>
+                    <li><strong>エッジ密度・カウント</strong>: エッジ画素の割合とコンポーネント数を計算（2カラム）
+                        <ul style="margin-top: 5px;">
+                            <li><code>edge_count</code>: エッジコンポーネントの数（本物: 1,774個、フェイク: 1,384個）</li>
+                        </ul>
+                    </li>
+                    <li><strong>エッジ長さ</strong>: 各エッジコンポーネントの平均長さと標準偏差（2カラム）</li>
+                    <li><strong>エッジ方向性</strong>: Hough変換でエッジの主な方向を分析（2カラム）</li>
+                    <li><strong>エッジ滑らかさ・曲率</strong>: 輪郭の曲がり具合を分析（3カラム）</li>
+                </ol>
+                <p style="margin-top: 10px; font-style: italic; color: #555;">
+                    <strong>なぜ有効か</strong>: 本物の絵画は筆触により複雑な輪郭線が生まれますが、
+                    AI生成画像は均質化され、エッジが少なく滑らかになります。
+                </p>
+                
+                <div class="image-container" style="margin-top: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Original/35500.jpg" alt="本物の絵画のエッジ（エッジ数が多い）" style="width: 100%; border: 2px solid #3498db;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">本物の絵画（Image ID: 35500）</div>
+                            <div class="image-caption" style="text-align: center; font-size: 0.9em; color: #555; margin-top: 3px; font-style: italic;">Eugene Boudin</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>edge_count: 6,532個</strong><br>
+                                画家は筆やパレットナイフなど様々な道具を使い、意図的に筆触（ブラシストローク）を残します。
+                                これにより、絵の具の重なりや筆の跡が複雑な輪郭線を作り出します。
+                                細かい筆触が多数あり、エッジが非常に多いことが視覚的にも確認できます。
+                            </p>
+                        </div>
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Stable-Diffusion/35500.jpg" alt="AI生成画像のエッジ（エッジ数が少ない）" style="width: 100%; border: 2px solid #e74c3c;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">AI生成画像（Image ID: 35500_generated）</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>edge_count: 803個</strong><br>
+                                生成モデルは「滑らかで美しい」画像を生成する傾向があります。
+                                その結果、細かい筆触や質感の違いが均質化され、エッジが少なくなります。
+                                滑らかで均一な輪郭線が少ないことが視覚的にも確認できます。
+                            </p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.9em; color: #7f8c8d; font-style: italic; margin-top: 10px;">
+                        <strong>観察ポイント</strong>: 同じImage ID（35500）の本物とフェイクを比較すると、左の本物の絵画は「手描きの地図」のように
+                        細かい線が複雑に交差しており、エッジが非常に多いことが視覚的にも確認できます。一方、右のAI生成画像は
+                        「印刷された地図」のように滑らかで均一な線になっており、エッジが少なくなっています。
+                        この違いが<code>edge_count</code>（エッジコンポーネント数）として明確に数値化されています（差: 5,729個）。
+                    </p>
+                </div>
+                
+                <div class="metric-box" style="margin-top: 20px; background: #fff9e6; border-left-color: #f39c12;">
+                    <h4 style="color: #d68910; margin-top: 0;">具体的なデータ例：エッジコンポーネント数の違い</h4>
+                    <p style="margin-bottom: 10px;">上記の画像に対応する実際のデータから、エッジコンポーネント数（<code>edge_count</code>）の違いが明確に現れていることを示します。</p>
+                    <table style="width: 100%; margin-top: 10px; font-size: 0.9em;">
+                        <thead>
+                            <tr>
+                                <th>画像ID</th>
+                                <th>ラベル</th>
+                                <th>edge_count</th>
+                                <th>edge_density</th>
+                                <th>edge_mean_length</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #e8f4f8;">
+                                <td><strong>35500</strong></td>
+                                <td>本物</td>
+                                <td style="color: #2980b9; font-weight: bold;">6,532個</td>
+                                <td>0.326</td>
+                                <td>13.07</td>
+                            </tr>
+                            <tr style="background-color: #fdecea;">
+                                <td><strong>35500_generated</strong></td>
+                                <td>フェイク</td>
+                                <td style="color: #e74c3c; font-weight: bold;">803個</td>
+                                <td>0.137</td>
+                                <td>44.74</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                        <strong>解釈</strong>: 本物の画像（ID: 35500）では、<code>edge_count</code>が6,532個と非常に多く、
+                        エッジ密度も0.326と高いことがわかります。これは、筆触により複雑な輪郭線が多数生まれていることを示しています。
+                        一方、同じ画像IDのフェイク画像（ID: 35500_generated）では、<code>edge_count</code>が803個と少なく、
+                        エッジ密度も0.137と低いことがわかります。この差は約8倍にもなります。
+                        また、<code>edge_mean_length</code>（平均エッジ長さ）も、本物は13.07（短いエッジが多い）に対し、
+                        フェイクは44.74（長いエッジが多い）と大きな違いがあります。これは、本物は細かい筆触が多く、
+                        フェイクは滑らかな輪郭線が少ないことを示しています。
+                    </p>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1.3em; margin-top: 25px; margin-bottom: 15px; color: #2980b9;">4. ゲシュタルト原則スコア（6カラム）</h3>
+            <div class="metric-box" style="margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;"><strong>目的</strong>: 人間の視覚認知パターンをLLMで評価する</p>
+                <p style="margin-bottom: 10px;"><strong>処理手順</strong>:</p>
+                <ol style="margin-left: 20px; margin-bottom: 10px;">
+                    <li><strong>LLaVAモデルを使用</strong>: Vision-Language Model（LLM）で画像を評価
+                        <ul style="margin-top: 5px;">
+                            <li>Ollama（ローカルLLMサーバー）で実行</li>
+                            <li>画像をbase64エンコードして送信</li>
+                        </ul>
+                    </li>
+                    <li><strong>6つのゲシュタルト原則を評価</strong>: 各原則について1-5のスコアを付与
+                        <ul style="margin-top: 5px;">
+                            <li>Simplicity（簡潔性）、Proximity（近接性）、Similarity（類同）</li>
+                            <li>Continuity（連続性）、Closure（閉合性）、Figure-Ground Separation（図地分離）</li>
+                        </ul>
+                    </li>
+                </ol>
+                <p style="margin-top: 10px; font-style: italic; color: #555;">
+                    <strong>なぜ有効か</strong>: ゲシュタルト原則は人間が画像を認識する際の基本的なパターンです。
+                    本物の絵画は画家が意図的にこれらの原則を活用しますが、AI生成画像は自然な配置になりにくい傾向があります。
+                </p>
+                
+                <div class="image-container" style="margin-top: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Original/36260.jpg" alt="本物の絵画のゲシュタルト原則（図地分離スコアが低い）" style="width: 100%; border: 2px solid #3498db;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">本物の絵画（Image ID: 36260）</div>
+                            <div class="image-caption" style="text-align: center; font-size: 0.9em; color: #555; margin-top: 3px; font-style: italic;">Claude Monet</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>figure_ground_score: 2</strong><br>
+                                この本物の絵画では、図地分離が不明確で、主観と背景の境界が曖昧な場合があります。
+                                画家の意図的な表現として、複雑な構図や抽象的な表現が用いられている可能性があります。
+                                ただし、要素の配置やグループ化には一定の規則性が見られます。
+                            </p>
+                        </div>
+                        <div>
+                            <img src="../../data/external/WikiArt_VLM-main/images/Stable-Diffusion/36260.jpg" alt="AI生成画像のゲシュタルト原則（図地分離スコアが高い）" style="width: 100%; border: 2px solid #e74c3c;">
+                            <div class="image-caption" style="text-align: center; font-weight: bold;">AI生成画像（Image ID: 36260_generated）</div>
+                            <p style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                                <strong>figure_ground_score: 5</strong><br>
+                                AI生成画像では、生成モデルが学習した「明確な図地分離」により、
+                                主観と背景が明確に区別され、要素が自然にグループ化されているように見えます。
+                                ただし、これは本物の複雑な表現とは異なる、より単純化された構造になっています。
+                            </p>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.9em; color: #7f8c8d; font-style: italic; margin-top: 10px;">
+                        <strong>観察ポイント</strong>: 同じImage ID（36260）の本物とフェイクを比較すると、興味深いことに
+                        本物の絵画では<code>figure_ground_score</code>が2と低く、図地分離が不明確な表現となっています。
+                        一方、AI生成画像では<code>figure_ground_score</code>が5と高く、明確な図地分離が行われています。
+                        これは、本物の絵画が意図的に複雑な表現を追求しているのに対し、AI生成画像は
+                        より単純化された「美しい」構造を生成する傾向があることを示しています（差: 3.00）。
+                    </p>
+                </div>
+                
+                <div class="metric-box" style="margin-top: 20px; background: #fff9e6; border-left-color: #f39c12;">
+                    <h4 style="color: #d68910; margin-top: 0;">具体的なデータ例：ゲシュタルト原則スコアの違い</h4>
+                    <p style="margin-bottom: 10px;">上記の画像に対応する実際のデータから、図地分離スコア（<code>figure_ground_score</code>）の違いが明確に現れていることを示します。</p>
+                    <table style="width: 100%; margin-top: 10px; font-size: 0.9em;">
+                        <thead>
+                            <tr>
+                                <th>画像ID</th>
+                                <th>ラベル</th>
+                                <th>simplicity_score</th>
+                                <th>proximity_score</th>
+                                <th>figure_ground_score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background-color: #e8f4f8;">
+                                <td><strong>36260</strong></td>
+                                <td>本物</td>
+                                <td>3</td>
+                                <td>4</td>
+                                <td style="color: #2980b9; font-weight: bold;">2</td>
+                            </tr>
+                            <tr style="background-color: #fdecea;">
+                                <td><strong>36260_generated</strong></td>
+                                <td>フェイク</td>
+                                <td>4</td>
+                                <td>3</td>
+                                <td style="color: #e74c3c; font-weight: bold;">5</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                        <strong>解釈</strong>: 本物の画像（ID: 36260）では、<code>figure_ground_score</code>が2と低く、
+                        <code>proximity_score</code>は4と中程度です。これは、画家が意図的に複雑な表現や抽象的な構図を
+                        追求している可能性を示しています。一方、同じ画像IDのフェイク画像（ID: 36260_generated）では、
+                        <code>figure_ground_score</code>が5（最高スコア）と非常に高く、明確な図地分離が行われています。
+                        この逆転現象は、本物の絵画が意図的に複雑な表現を追求しているのに対し、
+                        AI生成画像はより単純化された「美しい」構造を生成する傾向があることを示しています。
+                        この違いは、LLM（LLaVA）が人間の視覚認知パターンを評価することで、数値化されています。
+                    </p>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 30px;">教師データ（ラベル）</h2>
+            <div class="metric-box">
+                <strong>0: 本物（Authentic）</strong> - WikiArtの印象派絵画（8,664件）<br>
+                <strong>1: フェイク（Fake）</strong> - Stable-Diffusionで生成された画像（8,664件）<br>
+                <span style="font-size: 0.9em; color: #7f8c8d;">クラス分布: 完全にバランス（50%:50%）</span>
+            </div>
+
+            <h2 style="margin-top: 25px;">データ前処理</h2>
+            <div class="metric-box">
+                <p style="margin-bottom: 10px;"><strong>画像前処理</strong>:</p>
+                <ul style="margin-left: 20px; margin-bottom: 10px;">
+                    <li>リサイズ: 512×512ピクセル（計算効率と特徴量の一貫性を確保）</li>
+                    <li>色空間変換: BGR → RGB（標準形式に統一）</li>
+                </ul>
+                <p style="margin-bottom: 10px; margin-top: 15px;"><strong>特徴量の標準化</strong>:</p>
+                <ul style="margin-left: 20px; margin-bottom: 10px;">
+                    <li>訓練データのみでStandardScalerをfit（データリーク防止）</li>
+                    <li>テストデータには訓練データでfitしたスケーラーを適用</li>
+                    <li>理由: 異なるスケールの特徴量（例: エッジ数は1000以上、彩度は0-255）を同じスケールに統一</li>
+                </ul>
+                <p style="margin-bottom: 10px; margin-top: 15px;"><strong>データ分割</strong>:</p>
+                <ul style="margin-left: 20px;">
+                    <li>訓練データ80%、テストデータ20%</li>
+                    <li>stratifyを使用してクラス分布を保持（50%:50%を維持）</li>
+            </ul>
+            </div>
+
+            <h2 style="margin-top: 30px;">使用ライブラリ・ツール</h2>
+            <div class="metric-box">
+                <p style="margin-bottom: 15px;"><strong>画像から特徴量を抽出するために使用した主要なライブラリ</strong>:</p>
+                
+                <h3 style="font-size: 1.2em; margin-top: 20px; margin-bottom: 10px; color: #2980b9;">1. 画像処理ライブラリ</h3>
+                <table style="width: 100%; margin-top: 10px; font-size: 0.95em;">
+                    <thead>
+                        <tr>
+                            <th>ライブラリ名</th>
+                            <th>バージョン</th>
+                            <th>主な用途</th>
+                            <th>具体的な使用例</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>OpenCV</strong><br><code>opencv-python</code></td>
+                            <td>≥4.5.0</td>
+                            <td>画像読み込み・色空間変換・リサイズ</td>
+                            <td>
+                                <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                    <li><code>cv2.imread()</code>: 画像読み込み</li>
+                                    <li><code>cv2.cvtColor()</code>: RGB→HSV変換</li>
+                                    <li><code>cv2.resize()</code>: 画像リサイズ（512×512）</li>
+                                    <li><code>cv2.Canny()</code>: エッジ検出</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Pillow (PIL)</strong><br><code>Pillow</code></td>
+                            <td>≥8.3.0</td>
+                            <td>画像処理の補助</td>
+                            <td>画像形式変換、メタデータ取得</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 style="font-size: 1.2em; margin-top: 25px; margin-bottom: 10px; color: #2980b9;">2. 数値計算・統計ライブラリ</h3>
+                <table style="width: 100%; margin-top: 10px; font-size: 0.95em;">
+                    <thead>
+                        <tr>
+                            <th>ライブラリ名</th>
+                            <th>バージョン</th>
+                            <th>主な用途</th>
+                            <th>具体的な使用例</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>NumPy</strong><br><code>numpy</code></td>
+                            <td>≥1.21.0</td>
+                            <td>数値計算・統計量計算・配列操作</td>
+                            <td>
+                                <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                    <li><code>np.mean()</code>, <code>np.std()</code>, <code>np.var()</code>: 統計量計算</li>
+                                    <li><code>np.histogram()</code>: ヒストグラム計算</li>
+                                    <li><code>np.reshape()</code>: 配列の形状変換</li>
+                                    <li>HSVチャネルの統計量計算</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Pandas</strong><br><code>pandas</code></td>
+                            <td>≥1.3.0</td>
+                            <td>データ管理・CSV読み書き</td>
+                            <td>
+                                <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                    <li>特徴量のDataFrame管理</li>
+                                    <li>CSVファイルへの保存・読み込み</li>
+                                    <li>メタデータとの統合</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 style="font-size: 1.2em; margin-top: 25px; margin-bottom: 10px; color: #2980b9;">3. 機械学習・画像特徴量ライブラリ</h3>
+                <table style="width: 100%; margin-top: 10px; font-size: 0.95em;">
+                    <thead>
+                        <tr>
+                            <th>ライブラリ名</th>
+                            <th>バージョン</th>
+                            <th>主な用途</th>
+                            <th>具体的な使用例</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>scikit-learn</strong><br><code>scikit-learn</code></td>
+                            <td>≥1.0.0</td>
+                            <td>K-meansクラスタリング（支配色抽出）</td>
+                            <td>
+                                <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                    <li><code>KMeans(n_clusters=5)</code>: 画像の主要色を5つにクラスタリング</li>
+                                    <li>支配色のHSV統計量を計算</li>
+                                </ul>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>scikit-image</strong><br><code>scikit-image</code></td>
+                            <td>≥0.19.0</td>
+                            <td>テクスチャ特徴量（GLCM・LBP）</td>
+                            <td>
+                                <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                    <li><code>graycomatrix()</code>, <code>graycoprops()</code>: GLCM特徴量</li>
+                                    <li><code>local_binary_pattern()</code>: LBP特徴量</li>
+                                    <li>テクスチャパターンの統計量計算</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 style="font-size: 1.2em; margin-top: 25px; margin-bottom: 10px; color: #2980b9;">4. 特徴量抽出の処理フロー</h3>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                    <p style="margin-bottom: 10px;"><strong>色彩特徴量（19カラム）の抽出プロセス</strong>:</p>
+                    <ol style="margin-left: 20px; margin-bottom: 10px;">
+                        <li><strong>OpenCV</strong>で画像を読み込み、RGB→HSVに変換</li>
+                        <li><strong>NumPy</strong>でHSV各チャネル（H, S, V）の統計量（平均・標準偏差）を計算</li>
+                        <li><strong>scikit-learn</strong>のK-meansで支配色を5つ抽出し、HSV統計量を計算</li>
+                        <li><strong>NumPy</strong>で明度分布の歪度・尖度・エントロピーを計算</li>
+                    </ol>
+                    
+                    <p style="margin-bottom: 10px; margin-top: 15px;"><strong>テクスチャ特徴量（10カラム）の抽出プロセス</strong>:</p>
+                    <ol style="margin-left: 20px; margin-bottom: 10px;">
+                        <li><strong>OpenCV</strong>でRGB画像をグレースケールに変換</li>
+                        <li><strong>scikit-image</strong>の<code>graycomatrix()</code>でGLCMを計算（4方向の平均）</li>
+                        <li><strong>scikit-image</strong>の<code>graycoprops()</code>でGLCM特徴量（contrast, homogeneity等）を計算</li>
+                        <li><strong>scikit-image</strong>の<code>local_binary_pattern()</code>でLBP特徴量を計算</li>
+                        <li><strong>NumPy</strong>でLBPヒストグラムの統計量（エントロピー・歪度・尖度）を計算</li>
+                    </ol>
+                    
+                    <p style="margin-bottom: 10px; margin-top: 15px;"><strong>エッジ特徴量（9カラム）の抽出プロセス</strong>:</p>
+                    <ol style="margin-left: 20px;">
+                        <li><strong>OpenCV</strong>の<code>cv2.Canny()</code>でエッジ検出</li>
+                        <li><strong>OpenCV</strong>の<code>cv2.connectedComponentsWithStats()</code>でエッジコンポーネントを分析</li>
+                        <li><strong>OpenCV</strong>の<code>cv2.HoughLines()</code>でエッジ方向を分析</li>
+                        <li><strong>NumPy</strong>でエッジ密度・長さ・曲率の統計量を計算</li>
+                    </ol>
+                </div>
+
+                <div style="background: #fff9e6; border-left: 4px solid #f39c12; padding: 15px; margin-top: 20px; border-radius: 5px;">
+                    <h4 style="color: #d68910; margin-top: 0;">インストール方法</h4>
+                    <p style="margin-bottom: 10px;">すべてのライブラリは以下のコマンドでインストールできます：</p>
+                    <div style="background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; margin-bottom: 10px;">
+                        pip install opencv-python numpy pandas scikit-learn scikit-image Pillow
+                    </div>
+                    <p style="margin-bottom: 0; font-size: 0.9em;">または、プロジェクトの<code>requirements.txt</code>から一括インストール：</p>
+                    <div style="background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; margin-top: 5px;">
+                        pip install -r requirements.txt
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- スライド3: 精度 -->
+        <div class="slide">
+            <div class="slide-number">3 / 5</div>
+            <h1>精度</h1>
+            
+            <h2>モデル性能</h2>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <strong>訓練精度</strong><br>
+                    <span style="font-size: 1.5em; color: #27ae60;">99.96%</span>
+                </div>
+                <div class="feature-item">
+                    <strong>テスト精度</strong><br>
+                    <span style="font-size: 1.5em; color: #2980b9;">95.18%</span>
+                </div>
+                <div class="feature-item">
+                    <strong>交差検証スコア</strong><br>
+                    <span style="font-size: 1.5em; color: #2980b9;">94.98%</span><br>
+                    <span style="font-size: 0.9em;">(+/- 1.11%)</span>
+                </div>
+            </div>
+
+            <h2>混同行列</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>実際 \ 予測</th>
+                        <th>Authentic (0)</th>
+                        <th>Fake (1)</th>
+                        <th>合計</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Authentic (0)</strong></td>
+                        <td>1,635</td>
+                        <td>98</td>
+                        <td>1,733</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Fake (1)</strong></td>
+                        <td>69</td>
+                        <td>1,664</td>
+                        <td>1,733</td>
+                    </tr>
+                    <tr>
+                        <td><strong>合計</strong></td>
+                        <td>1,704</td>
+                        <td>1,762</td>
+                        <td>3,466</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>分類レポート</h2>
+            <div class="metric-box">
+                <strong>Authentic (0)</strong>: Precision 0.96, Recall 0.94, F1 0.95<br>
+                <strong>Fake (1)</strong>: Precision 0.94, Recall 0.96, F1 0.95<br>
+                <strong>誤分類</strong>: 167件（4.82%）<br>
+                <span style="font-size: 0.9em;">偽陽性（本物→フェイク）: 98件、偽陰性（フェイク→本物）: 69件</span>
+            </div>
+
+            <div class="image-container">
+                <img src="../../data/artifacts/visualizations/latest/confusion_matrix.png" alt="混同行列">
+                <div class="image-caption">図1: 混同行列</div>
+            </div>
+        </div>
+
+        <!-- スライド4: データバイアスの可視化 -->
+        <div class="slide">
+            <div class="slide-number">4 / 5</div>
+            <h1>データバイアスの可視化</h1>
+
+            <p style="font-size: 1.05em;">
+                ラベル（0: Authentic, 1: Fake）ごとの特徴量分布を比較すると、生成モデル特有のノイズや描画パターンが
+                そのまま特徴量に反映されており、<span class="highlight">本物 vs フェイクの判別が容易である理由</span>が確認できます。
+            </p>
+            <div class="metric-box" style="margin-top: 15px; margin-bottom: 20px;">
+                <strong>実行方法:</strong> <code>python scripts/analyze_bias.py --generation-model Stable-Diffusion</code><br>
+                <strong>出力先:</strong> 
+                <ul style="margin-top: 5px; margin-left: 20px;">
+                    <li>統計サマリ: <code>data/artifacts/results/latest/bias_feature_summary.csv</code></li>
+                    <li>可視化: <code>data/artifacts/visualizations/latest/bias_feature_mean_diff.png</code>, <code>bias_feature_distributions.png</code></li>
+                </ul>
+            </div>
+
+            <h2>ラベル別・主要特徴量の統計</h2>
+            <p style="font-size: 0.95em; color: #7f8c8d; margin-bottom: 15px;">
+                <code>python scripts/analyze_bias.py --generation-model Stable-Diffusion</code> により生成された統計サマリより抜粋。
+                <strong>SHAP特徴量重要度の上位5特徴量</strong>に対応する統計値を示しています。
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>順位</th>
+                        <th>特徴量</th>
+                        <th>SHAP重要度</th>
+                        <th>Authentic<br>平均 (標準偏差)</th>
+                        <th>Fake<br>平均 (標準偏差)</th>
+                        <th>差分<br>(Fake - Authentic)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1</strong></td>
+                        <td><code>texture_lbp_std</code></td>
+                        <td>0.116</td>
+                        <td>3.27<br><span style="font-size: 0.85em; color: #7f8c8d;">(±0.18)</span></td>
+                        <td>2.92<br><span style="font-size: 0.85em; color: #7f8c8d;">(±0.16)</span></td>
+                        <td style="color: #e74c3c; font-weight: bold;">-0.34</td>
+                    </tr>
+                    <tr>
+                        <td><strong>2</strong></td>
+                        <td><code>saturation_std</code></td>
+                        <td>0.063</td>
+                        <td>43.25<br><span style="font-size: 0.85em; color: #7f8c8d;">(±12.21)</span></td>
+                        <td>59.59<br><span style="font-size: 0.85em; color: #7f8c8d;">(±13.48)</span></td>
+                        <td style="color: #27ae60; font-weight: bold;">+16.34</td>
+                    </tr>
+                    <tr>
+                        <td><strong>3</strong></td>
+                        <td><code>texture_lbp_histogram_entropy</code></td>
+                        <td>0.051</td>
+                        <td>3.14<br><span style="font-size: 0.85em; color: #7f8c8d;">(±0.09)</span></td>
+                        <td>3.24<br><span style="font-size: 0.85em; color: #7f8c8d;">(±0.08)</span></td>
+                        <td style="color: #27ae60; font-weight: bold;">+0.09</td>
+                    </tr>
+                    <tr>
+                        <td><strong>4</strong></td>
+                        <td><code>mean_hue</code></td>
+                        <td>0.035</td>
+                        <td>44.99<br><span style="font-size: 0.85em; color: #7f8c8d;">(±23.74)</span></td>
+                        <td>60.36<br><span style="font-size: 0.85em; color: #7f8c8d;">(±16.15)</span></td>
+                        <td style="color: #27ae60; font-weight: bold;">+15.37</td>
+                    </tr>
+                    <tr>
+                        <td><strong>5</strong></td>
+                        <td><code>texture_glcm_homogeneity</code></td>
+                        <td>0.034</td>
+                        <td>0.107<br><span style="font-size: 0.85em; color: #7f8c8d;">(±0.053)</span></td>
+                        <td>0.171<br><span style="font-size: 0.85em; color: #7f8c8d;">(±0.088)</span></td>
+                        <td style="color: #27ae60; font-weight: bold;">+0.064</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="image-container">
+                <img src="../../data/artifacts/visualizations/latest/bias_feature_mean_diff.png" alt="ラベル別平均値の差">
+                <div class="image-caption">図2: 平均値の差（Fake - Authentic）</div>
+            </div>
+
+            <div class="image-container">
+                <img src="../../data/artifacts/visualizations/latest/bias_feature_distributions.png" alt="特徴量分布比較">
+                <div class="image-caption">図3: 主要特徴量の分布（KDE, Authentic vs Fake）</div>
+            </div>
+
+            <div class="summary-box">
+                <h3>考察：なぜ本物とフェイクを簡単に判別できるのか？</h3>
+                <p style="margin-bottom: 20px; font-size: 1.05em;">
+                    SHAP分析により、モデルが最も重視している特徴量が明らかになりました。
+                    以下では、<strong>特徴量重要度の上位5特徴量</strong>について、その意味と違いを詳しく解説します。
+                </p>
+                
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">1. テクスチャの多様性が最も重要（重要度: 0.116、差分: -0.34）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量の意味</strong>: <code>texture_lbp_std</code>は、LBP（Local Binary Pattern）値の標準偏差を表します。
+                    LBPは画像の局所的な質感パターンを符号化したもので、標準偏差が大きいほど、画像内の質感が多様であることを意味します。
+                    本物の絵画では平均3.27、生成画像では平均2.92と約11%低くなっています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜこの差が生まれるのか</strong>:
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>本物の絵画</strong>: 画家は筆やパレットナイフなど様々な道具を使い、意図的に筆触（ブラシストローク）を残します。
+                    これにより、絵の具の重なりや筆の跡が複雑な質感パターンを作り出します。また、キャンバスの織り目や絵の具の厚みも
+                    局所的な質感の変化を生み出します。その結果、画像内の質感パターンが多様になり、LBP値の標準偏差が大きくなります。</li>
+                    <li><strong>AI生成画像</strong>: Stable-Diffusionなどの生成モデルは、学習データから「滑らかで均一な表面」を生成する傾向があります。
+                    その結果、質感が均質化され、局所的な質感パターンの多様性が低くなります。
+                    まるで、すべての部分が同じブラシで一様に塗られたように見えるのです。</li>
+                </ul>
+                <p style="margin-bottom: 20px; font-style: italic; color: #555;">
+                    <strong>比喩で説明すると</strong>: 本物の絵画は「手織りの布」のように、織り目や質感の変化が感じられますが、
+                    AI生成画像は「合成繊維の布」のように、どこも同じような滑らかな質感になっています。
+                    <strong>この特徴量が最も高い重要度を持つ理由は、質感の違いが本物とフェイクを区別する最も強力な手がかりだからです。</strong>
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">2. 彩度のばらつき（重要度: 0.063、差分: +16.34）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量の意味</strong>: <code>saturation_std</code>は、画像内の彩度（色の鮮やかさ）の標準偏差を表します。
+                    値が大きいほど、鮮やかな部分とくすんだ部分が混在していることを意味します。
+                    本物の絵画では平均43.25、生成画像では平均59.59と約38%高くなっています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜこの差が生まれるのか</strong>:
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>本物の絵画</strong>: 画家は意図的に彩度を調整し、鮮やかな部分とくすんだ部分をバランスよく配置します。
+                    例えば、前景を鮮やかに、背景をくすんだ色にするなど、構図に応じて彩度をコントロールします。
+                    その結果、彩度のばらつきが比較的小さくなります。</li>
+                    <li><strong>AI生成画像</strong>: 生成モデルは「目を引く鮮やかな色」を生成する傾向があります。
+                    その結果、彩度が全体的に高く、鮮やかな部分とくすんだ部分のコントラストが大きくなります。
+                    まるで、すべての色が「鮮やかすぎる」ように見えるのです。</li>
+                </ul>
+                <p style="margin-bottom: 20px; font-style: italic; color: #555;">
+                    <strong>比喩で説明すると</strong>: 本物の絵画は「自然な風景写真」のように、彩度がバランスよく配置されていますが、
+                    AI生成画像は「過度に加工された写真」のように、彩度が高すぎて不自然に見えます。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">3. テクスチャパターンのエントロピー（重要度: 0.051、差分: +0.09）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量の意味</strong>: <code>texture_lbp_histogram_entropy</code>は、LBPヒストグラムのエントロピーを表します。
+                    エントロピーが大きいほど、質感パターンの分布が均一で多様であることを意味します。
+                    本物の絵画では平均3.14、生成画像では平均3.24と約3%高くなっています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜこの差が生まれるのか</strong>:
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>本物の絵画</strong>: 画家は様々な筆触や技法を使い、質感パターンに多様性を持たせます。
+                    しかし、全体として統一感のある作品にするため、質感パターンの分布は比較的均一になります。
+                    その結果、エントロピーが比較的低くなります。</li>
+                    <li><strong>AI生成画像</strong>: 生成モデルは学習データから「一般的な美しい質感」を学習します。
+                    その結果、質感パターンの分布がより均一になり、エントロピーが高くなります。
+                    これは、生成モデルが「平均的な質感」を生成する傾向があることを示しています。</li>
+                </ul>
+                <p style="margin-bottom: 20px; font-style: italic; color: #555;">
+                    <strong>比喩で説明すると</strong>: 本物の絵画は「手作りのパッチワーク」のように、各パッチに個性がありますが、
+                    AI生成画像は「工場で作られたパッチワーク」のように、すべてのパッチが均一な質感になっています。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">4. 色相の平均値（重要度: 0.035、差分: +15.37）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量の意味</strong>: <code>mean_hue</code>は、画像全体の色相（色の種類）の平均を表します。
+                    0-30度は赤～オレンジ系、60-120度は緑系、120-180度は青～紫系です。
+                    本物の絵画では平均44.99度（黄緑～黄色系）、生成画像では平均60.36度（黄色～緑系）と約34%高くなっています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜこの差が生まれるのか</strong>:
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>本物の絵画</strong>: 画家は意図的に色相を選択し、暖色系と寒色系をバランスよく配置します。
+                    印象派の絵画では、自然光の表現のために、黄緑～黄色系の色相が多く使われます。
+                    しかし、全体として色相の分布は多様で、特定の色相範囲に偏りにくくなります。</li>
+                    <li><strong>AI生成画像</strong>: 生成モデルは「一般的に美しいとされる色の組み合わせ」を学習します。
+                    その結果、特定の色相範囲（特に暖色系）に偏りやすくなります。
+                    まるで、パレットの色数が限られているように見えるのです。</li>
+                </ul>
+                <p style="margin-bottom: 20px; font-style: italic; color: #555;">
+                    <strong>比喩で説明すると</strong>: 本物の絵画は「自然の風景」のように、様々な色相がバランスよく配置されていますが、
+                    AI生成画像は「フィルターをかけた写真」のように、特定の色相に偏りがちです。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">5. テクスチャの均質性（重要度: 0.034、差分: +0.064）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量の意味</strong>: <code>texture_glcm_homogeneity</code>は、GLCM（Gray-Level Co-occurrence Matrix）の均質性を表します。
+                    値が大きいほど、画素間の類似度が高く、質感が均一であることを意味します。
+                    本物の絵画では平均0.107、生成画像では平均0.171と約60%高くなっています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜこの差が生まれるのか</strong>:
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>本物の絵画</strong>: 画家は意図的に筆触や質感の変化を作り出します。
+                    絵の具の厚み、筆の跡、キャンバスの織り目などが、画素間の類似度を低くし、均質性を下げます。
+                    その結果、質感が粗く、触ったら質感が感じられるような立体感があります。</li>
+                    <li><strong>AI生成画像</strong>: 生成モデルは「滑らかで均一な表面」を生成する傾向があります。
+                    その結果、画素間の類似度が高く、均質性が高くなります。
+                    まるで、すべての部分が同じ素材で作られたように見えるのです。</li>
+                </ul>
+                <p style="margin-bottom: 20px; font-style: italic; color: #555;">
+                    <strong>比喩で説明すると</strong>: 本物の絵画は「手織りの布」のように、織り目や質感の変化が感じられますが、
+                    AI生成画像は「合成繊維の布」のように、どこも同じような滑らかな質感になっています。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #e74c3c;">重要な注意点：データ分割について</h4>
+                <p style="margin-bottom: 15px;">
+                    Original画像とGenerated画像はペアになっていますが、通常のランダム分割では
+                    同じペアの画像が訓練データとテストデータに分かれてしまう可能性があります。
+                    これは<strong>データリーク</strong>と呼ばれる問題で、モデルの性能が過大評価される原因になります。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>解決方法</strong>: ペア単位でデータを分割する必要があります。
+                    つまり、あるOriginal画像が訓練データに入ったら、その対応するGenerated画像も
+                    必ず訓練データに入れるようにします。これにより、モデルの真の汎化性能を評価できます。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2980b9;">まとめ：なぜ分類が簡単なのか？</h4>
+                <p style="margin-bottom: 15px;">
+                    本物の絵画とAI生成画像の違いは、単なる「見た目」の違いではありません。
+                    それは、<strong>制作プロセスの根本的な違い</strong>が画像の特徴量に反映されているからです。
+                    SHAP分析により、モデルが最も重視している特徴量が明らかになりました。
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><strong>テクスチャの多様性（最重要）</strong>: 本物の絵画は、画家の手による「意図的な不規則性」と「多様性」を持っています。
+                    一方、AI生成画像は「均質性」と「規則性」を持っています。この違いが<code>texture_lbp_std</code>として明確に現れます。</li>
+                    <li><strong>色彩の特徴</strong>: 本物の絵画は、彩度や色相を意図的にコントロールし、バランスの取れた配色を実現します。
+                    一方、AI生成画像は「目を引く鮮やかな色」に偏りやすく、<code>saturation_std</code>や<code>mean_hue</code>として違いが現れます。</li>
+                    <li><strong>質感パターンの分布</strong>: 本物の絵画は、質感パターンに多様性を持たせつつ、統一感を保ちます。
+                    一方、AI生成画像は「平均的な質感」を生成する傾向があり、<code>texture_lbp_histogram_entropy</code>や<code>texture_glcm_homogeneity</code>として違いが現れます。</li>
+                </ul>
+                <p style="margin-bottom: 0; font-weight: bold; color: #2e7d32;">
+                    つまり、機械学習モデルは「人間の目には見えない微細な違い」を数値として捉え、
+                    高い精度で分類できるのです。特に、<strong>テクスチャの多様性</strong>が最も重要な判断材料となっており、
+                    これは、AIが「人間の知覚を超えた特徴」を発見できることを示しています。
+                </p>
+            </div>
+        </div>
+
+        <!-- スライド4: SHAP解釈結果 -->
+        <div class="slide">
+            <div class="slide-number">5 / 5</div>
+            <h1>SHAP解釈結果</h1>
+            
+            <h2>特徴量重要度（上位5特徴量）</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>順位</th>
+                        <th>特徴量名</th>
+                        <th>SHAP重要度</th>
+                        <th>カテゴリ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><code>texture_lbp_std</code></td>
+                        <td>0.116</td>
+                        <td>テクスチャ（LBP）</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><code>saturation_std</code></td>
+                        <td>0.063</td>
+                        <td>色彩（HSV）</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><code>texture_lbp_histogram_entropy</code></td>
+                        <td>0.051</td>
+                        <td>テクスチャ（LBP）</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><code>mean_hue</code></td>
+                        <td>0.035</td>
+                        <td>色彩（HSV）</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><code>texture_glcm_homogeneity</code></td>
+                        <td>0.034</td>
+                        <td>テクスチャ（GLCM）</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h2>SHAP Summary Plotの解釈</h2>
+            <div class="image-container">
+                <img src="../../data/artifacts/visualizations/latest/shap_summary_plot.png" alt="SHAP Summary Plot">
+                <div class="image-caption">図4: SHAP Summary Plot</div>
+            </div>
+
+            <div class="summary-box">
+                <h3>SHAP分析による主な発見</h3>
+                
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">1. テクスチャ特徴量が最も重要（重要度: 0.116）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量</strong>: <code>texture_lbp_std</code>（LBP値の標準偏差）が最も高い重要度を示しています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>意味</strong>: LBP（Local Binary Pattern）は、画像の局所的な質感パターンを数値化したものです。
+                    標準偏差が大きいということは、画像内の質感が多様であることを意味します。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜ重要か</strong>: 本物の絵画では、筆触や絵の具の厚みにより、場所によって異なる質感パターンが生まれます。
+                    一方、AI生成画像では、質感が均質化されやすく、パターンの多様性が低くなります。
+                    この違いが、モデルが最も重視する判断材料となっているのです。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">2. 色彩特徴量も重要（重要度: 0.063, 0.035）</h4>
+                <p style="margin-bottom: 15px;">
+                    <strong>特徴量</strong>: <code>saturation_std</code>（彩度の標準偏差、重要度0.063）と
+                    <code>mean_hue</code>（色相の平均値、重要度0.035）が上位にランクインしています。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>意味</strong>: 
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><code>saturation_std</code>: 画像内の彩度（色の鮮やかさ）のばらつきを表します。
+                    値が大きいほど、鮮やかな部分とくすんだ部分が混在していることを意味します。</li>
+                    <li><code>mean_hue</code>: 画像全体の色相（色の種類）の平均を表します。
+                    0-30度は赤～オレンジ系、60-120度は緑系、120-180度は青～紫系です。</li>
+                </ul>
+                <p style="margin-bottom: 15px;">
+                    <strong>なぜ重要か</strong>: 本物の絵画では、画家が意図的に彩度を調整し、鮮やかな部分とくすんだ部分を
+                    バランスよく配置します。また、色相も多様で、暖色系と寒色系が組み合わされています。
+                    一方、AI生成画像では、彩度が高く均質化されやすく、特定の色相範囲に偏りやすい傾向があります。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2e7d32;">3. SHAP値の分布の意味</h4>
+                <p style="margin-bottom: 15px;">
+                    SHAP Summary Plotを見ると、各特徴量のSHAP値は正の値（フェイクと予測）と負の値（本物と予測）の
+                    両方を持っています。これは、<strong>同じ特徴量でも、値によって予測が異なる</strong>ことを意味します。
+                </p>
+                <p style="margin-bottom: 15px;">
+                    <strong>具体例</strong>: 
+                </p>
+                <ul style="margin-left: 20px; margin-bottom: 15px;">
+                    <li><code>texture_lbp_std</code>が<strong>大きい</strong>（右側の赤い点）→ フェイクと予測</li>
+                    <li><code>texture_lbp_std</code>が<strong>小さい</strong>（左側の青い点）→ 本物と予測</li>
+                </ul>
+                <p style="margin-bottom: 15px;">
+                    これは、モデルが「単純なルール」ではなく、<strong>特徴量の値の組み合わせ</strong>を総合的に判断して
+                    分類していることを示しています。つまり、機械学習モデルは、人間が気づかない複雑なパターンを
+                    発見しているのです。
+                </p>
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: #2980b9;">まとめ：SHAP分析からわかること</h4>
+                <p style="margin-bottom: 0;">
+                    SHAP分析により、モデルが「テクスチャの多様性」を最も重視していることが明らかになりました。
+                    これは、本物の絵画とAI生成画像の違いが、単なる「色の違い」や「構図の違い」ではなく、
+                    <strong>「質感の違い」</strong>にあることを示しています。
+                    この発見は、AI生成画像の検出技術の改善や、本物のアートの特徴を理解する上で重要な知見となります。
+                </p>
+            </div>
+
+            <div class="image-container" style="margin-top: 20px;">
+                <img src="../../data/artifacts/visualizations/latest/shap_feature_importance.png" alt="SHAP特徴量重要度">
+                <div class="image-caption">図5: SHAP特徴量重要度（上位10特徴量）</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
