@@ -19,6 +19,9 @@ scikit-image>=0.19.0
 
 # API通信
 requests>=2.25.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
 
 # データ管理
 # sqlite3 は標準ライブラリのため不要

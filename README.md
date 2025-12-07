@@ -152,6 +152,46 @@ python scripts/compare_generation_models.py --generation-models Stable-Diffusion
 
 `run_all_phases.py` からも同様のフェーズ実行が可能です。`main.py` にある旧モード類は保守目的で残っていますが、現行カリキュラムでは `scripts/train_wikiart_vlm.py` 系を利用してください。
 
+### 学習済みモデルを使った推論API (FastAPI)
+
+学習済みランダムフォレスト (`data/artifacts/models/latest/random_forest_model.pkl`, `scaler.pkl`) を読み込むAPIを起動できます。
+
+```bash
+# 推奨: uv経由で起動
+uv run python scripts/run_api.py --host 0.0.0.0 --port 8000 --reload
+
+# 直接uvicornを使う場合
+uv run uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+```
+
+- 環境変数
+  - `MAX_UPLOAD_BYTES`: アップロード上限 (デフォルト 8MB)
+  - `ENABLE_GESTALT=true`: ゲシュタルト指標計算を有効化（Ollama / LLaVA が必要）
+- エンドポイント
+  - `GET /health`: ヘルスチェック（モデルバージョン、特徴量数）
+  - `POST /predict`: 画像ファイルを受け取り、本物/偽物ラベル、確率、SHAP上位特徴、色特徴、ゲシュタルト指標、EXIF情報を返却
+
+### Reactベースの推論UI (Vite + Tailwind)
+
+アップロード〜推論結果表示までを行うモダンUIを提供します。
+
+```bash
+cd frontend
+npm install      # 初回のみ
+npm run dev      # http://localhost:5173
+```
+
+- APIエンドポイントは `.env` で設定可能
+  - `VITE_API_BASE_URL=http://localhost:8000`
+- 画面で確認できる項目
+  - 本物/偽物ラベルと確信度バー
+  - 確率 (authentic/fake)
+  - SHAP上位特徴10件
+  - 色・テクスチャ特徴（主要な色統計・エッジ系）
+  - ゲシュタルト指標スコア（任意で計算）
+  - EXIF/寸法/ファイルサイズ
+  - セッション内履歴（サムネイルつき）
+
 ### バイアス可視化ツール
 
 ```bash
