@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 
 type Prediction = {
   label: "authentic" | "fake";
@@ -54,6 +54,9 @@ function App() {
 
   const handleFile = (inputFile: File | null) => {
     if (!inputFile) return;
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setFile(inputFile);
     const url = URL.createObjectURL(inputFile);
     setPreviewUrl(url);
@@ -84,21 +87,40 @@ function App() {
       }
       const data: ApiResponse = await res.json();
       setResult(data);
+      const historyPreview = file ? URL.createObjectURL(file) : previewUrl;
       const item: HistoryItem = {
         id: crypto.randomUUID(),
         label: data.prediction.label,
         confidence: data.prediction.confidence,
-        preview: previewUrl,
+        preview: historyPreview,
         fileName: data.file_name,
         timestamp: new Date().toLocaleTimeString(),
       };
-      setHistory((prev) => [item, ...prev].slice(0, 8));
+      setHistory((prev) => {
+        const next = [item, ...prev];
+        const pruned = next.slice(8);
+        pruned.forEach((p) => {
+          if (p.preview) URL.revokeObjectURL(p.preview);
+        });
+        return next.slice(0, 8);
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "不明なエラーが発生しました。");
     } finally {
       setLoading(false);
     }
   };
+
+  // revoke object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      history.forEach((h) => {
+        if (h.preview) URL.revokeObjectURL(h.preview);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const colorFeatures = useMemo(() => {
     if (!result?.features) return [];
@@ -250,7 +272,7 @@ function App() {
                             <div className="h-5 overflow-hidden rounded bg-slate-800/80">
                               <div
                                 className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400"
-                                style={{ width: `${Math.min(f.importance * 600, 100)}%` }}
+                                style={{ width: `${Math.min(f.importance * 100, 100)}%` }}
                               />
                             </div>
                           </div>

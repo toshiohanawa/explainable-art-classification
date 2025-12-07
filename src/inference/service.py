@@ -62,7 +62,8 @@ class InferenceService:
         self.model = None
         self.scaler = None
         self.feature_columns: List[str] = []
-        self.model_version = self._resolve_model_version()
+        self.model_version = "unknown"
+        self.model_load_error: Optional[str] = None
 
         self.feature_extractor = ColorFeatureExtractor(
             self.config, timestamp_manager=self.timestamp_manager
@@ -73,26 +74,43 @@ class InferenceService:
     def _resolve_model_version(self) -> str:
         """モデルファイルの更新日時をバージョンとして返す。"""
         if not self.model_path.exists():
-            return "unknown"
+            return "missing"
         ts = datetime.fromtimestamp(self.model_path.stat().st_mtime)
         return ts.strftime("%Y-%m-%d %H:%M:%S")
 
     def _load_model(self) -> None:
-        if not self.model_path.exists():
-            raise FileNotFoundError(f"モデルファイルが見つかりません: {self.model_path}")
-        with open(self.model_path, "rb") as f:
-            model_data = pickle.load(f)
-        self.model = model_data["model"]
-        self.feature_columns = model_data["feature_columns"]
-        self.scaler = None
-        if self.scaler_path.exists():
-            with open(self.scaler_path, "rb") as f:
-                self.scaler = pickle.load(f)
-        logger.info(
-            "モデル読み込み完了 | features=%d | scaler=%s",
-            len(self.feature_columns),
-            "yes" if self.scaler is not None else "no",
-        )
+        try:
+            if not self.model_path.exists():
+                raise FileNotFoundError(f"モデルファイルが見つかりません: {self.model_path}")
+            with open(self.model_path, "rb") as f:
+                model_data = pickle.load(f)
+            self.model = model_data["model"]
+            self.feature_columns = model_data["feature_columns"]
+            self.scaler = None
+            if self.scaler_path.exists():
+                with open(self.scaler_path, "rb") as f:
+                    self.scaler = pickle.load(f)
+            self.model_version = self._resolve_model_version()
+            self.model_load_error = None
+            logger.info(
+                "モデル読み込み完了 | features=%d | scaler=%s",
+                len(self.feature_columns),
+                "yes" if self.scaler is not None else "no",
+            )
+        except FileNotFoundError as e:
+            self.model = None
+            self.scaler = None
+            self.feature_columns = []
+            self.model_version = "missing"
+            self.model_load_error = str(e)
+            logger.warning("モデル読み込みに失敗しました（継続起動）: %s", e)
+        except Exception as e:  # noqa: BLE001
+            self.model = None
+            self.scaler = None
+            self.feature_columns = []
+            self.model_version = "error"
+            self.model_load_error = str(e)
+            logger.error("モデル読み込みでエラー: %s", e)
 
     def _top_feature_importances(self, features: Dict[str, float], top_n: int = 10) -> List[Dict[str, float]]:
         """ランダムフォレストの特徴量重要度ランキング（特徴量値付き）"""
@@ -106,6 +124,8 @@ class InferenceService:
         return pairs[:top_n]
 
     def _validate_extension(self, filename: str) -> None:
+        if not filename:
+            raise ValueError("ファイル名が空です。")
         ext = Path(filename).suffix.lower()
         if ext not in self.ALLOWED_EXTENSIONS:
             raise ValueError(f"未対応の拡張子です: {ext} (許可: {', '.join(sorted(self.ALLOWED_EXTENSIONS))})")
@@ -148,6 +168,8 @@ class InferenceService:
         return np.array([float(feature_dict.get(col, 0.0)) for col in self.feature_columns], dtype=float)
 
     def _predict_vector(self, X: np.ndarray, features: Dict[str, float]) -> Dict[str, Any]:
+        if self.model is None:
+            raise ValueError(f"モデルが読み込まれていません: {self.model_load_error or '原因不明'}")
         proba = self.model.predict_proba(X)[0]
         prob_authentic = float(proba[0])
         prob_fake = float(proba[1])
@@ -167,6 +189,8 @@ class InferenceService:
         include_gestalt: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """画像バイト列から推論を実行。"""
+        if self.model is None:
+            raise ValueError(f"モデルが読み込まれていません: {self.model_load_error or '原因不明'}")
         self._validate_extension(filename)
         gestalt_flag = self.enable_gestalt if include_gestalt is None else include_gestalt
 

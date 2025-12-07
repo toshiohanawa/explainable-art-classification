@@ -35,11 +35,14 @@ inference_service = InferenceService()
 
 @app.get("/health", summary="疎通確認")
 def health() -> Dict[str, Any]:
+    # モデルがない場合でも落とさず状態を返す
     return {
         "status": "ok",
         "model_version": inference_service.model_version,
         "feature_count": len(inference_service.feature_columns),
         "gestalt_enabled": inference_service.enable_gestalt,
+        "model_error": inference_service.model_load_error,
+        "model_loaded": inference_service.model is not None,
     }
 
 
@@ -49,18 +52,21 @@ async def predict(
     include_gestalt: bool = False,
 ) -> Dict[str, Any]:
     content = await file.read()
+    filename = (file.filename or "").strip()
     if not content:
         raise HTTPException(status_code=400, detail="画像が空です。")
+    if not filename:
+        raise HTTPException(status_code=400, detail="ファイル名が空です。")
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="ファイルサイズが上限を超えています。")
 
     try:
         result = inference_service.predict_image_bytes(
             content,
-            filename=file.filename,
+            filename=filename,
             include_gestalt=include_gestalt,
         )
-        result["file_name"] = file.filename
+        result["file_name"] = filename
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
